@@ -224,6 +224,9 @@ export function NewBinderDialog({
 
   const removeField = (id: string) => setFields((p) => p.filter((f) => f.id !== id));
 
+  const updateField = (id: string, patch: Partial<SignatureField>) =>
+    setFields((p) => p.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+
   const fieldsOnPage = fields.filter(
     (f) => f.documentId === activeDocId && f.page === activePage,
   );
@@ -551,33 +554,14 @@ export function NewBinderDialog({
                           const signer = signers.find((s) => s.id === f.signerId);
                           const color = signer?.color ?? "#0EA5E9";
                           return (
-                            <div
+                            <ResizableField
                               key={f.id}
-                              className="absolute flex items-center justify-between rounded border-2 px-1.5 text-[9px] font-semibold uppercase shadow-sm"
-                              style={{
-                                left: `${f.x * 100}%`,
-                                top: `${f.y * 100}%`,
-                                width: `${f.width * 100}%`,
-                                height: `${f.height * 100}%`,
-                                borderColor: color,
-                                backgroundColor: `${color}25`,
-                                color,
-                              }}
-                            >
-                              <span className="truncate">
-                                {signer?.name?.split(" ")[0] || `#${signer?.order}`}
-                              </span>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  removeField(f.id);
-                                }}
-                                className="rounded p-0.5 hover:bg-white/40"
-                                aria-label={t("newBinder.removeZone")}
-                              >
-                                <X className="h-2.5 w-2.5" />
-                              </button>
-                            </div>
+                              field={f}
+                              color={color}
+                              label={signer?.name?.split(" ")[0] || `#${signer?.order}`}
+                              onChange={(patch) => updateField(f.id, patch)}
+                              onRemove={() => removeField(f.id)}
+                            />
                           );
                         })}
                       </DocumentPagePreview>
@@ -780,3 +764,120 @@ function FileRow({
     </li>
   );
 }
+
+type Handle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw" | "move";
+
+const MIN_W = 0.06;
+const MIN_H = 0.025;
+
+function ResizableField({
+  field,
+  color,
+  label,
+  onChange,
+  onRemove,
+}: {
+  field: SignatureField;
+  color: string;
+  label: string;
+  onChange: (patch: Partial<SignatureField>) => void;
+  onRemove: () => void;
+}) {
+  const startDrag = (e: React.PointerEvent, handle: Handle) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const target = e.currentTarget as HTMLElement;
+    const parent =
+      target.closest<HTMLElement>("[data-page-surface]") ??
+      (target.offsetParent as HTMLElement | null);
+    if (!parent) return;
+    const rect = parent.getBoundingClientRect();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const start = { x: field.x, y: field.y, w: field.width, h: field.height };
+
+    const onMove = (ev: PointerEvent) => {
+      const dx = (ev.clientX - startX) / rect.width;
+      const dy = (ev.clientY - startY) / rect.height;
+      let { x, y, w, h } = start;
+      if (handle === "move") {
+        x = Math.max(0, Math.min(1 - w, start.x + dx));
+        y = Math.max(0, Math.min(1 - h, start.y + dy));
+      } else {
+        if (handle.includes("e")) w = Math.max(MIN_W, Math.min(1 - start.x, start.w + dx));
+        if (handle.includes("s")) h = Math.max(MIN_H, Math.min(1 - start.y, start.h + dy));
+        if (handle.includes("w")) {
+          const nw = Math.max(MIN_W, start.w - dx);
+          x = Math.max(0, start.x + (start.w - nw));
+          w = nw;
+        }
+        if (handle.includes("n")) {
+          const nh = Math.max(MIN_H, start.h - dy);
+          y = Math.max(0, start.y + (start.h - nh));
+          h = nh;
+        }
+      }
+      onChange({ x, y, width: w, height: h });
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  const handles: { key: Handle; cls: string }[] = [
+    { key: "nw", cls: "-left-1 -top-1 cursor-nwse-resize" },
+    { key: "n", cls: "left-1/2 -top-1 -translate-x-1/2 cursor-ns-resize" },
+    { key: "ne", cls: "-right-1 -top-1 cursor-nesw-resize" },
+    { key: "e", cls: "-right-1 top-1/2 -translate-y-1/2 cursor-ew-resize" },
+    { key: "se", cls: "-right-1 -bottom-1 cursor-nwse-resize" },
+    { key: "s", cls: "left-1/2 -bottom-1 -translate-x-1/2 cursor-ns-resize" },
+    { key: "sw", cls: "-left-1 -bottom-1 cursor-nesw-resize" },
+    { key: "w", cls: "-left-1 top-1/2 -translate-y-1/2 cursor-ew-resize" },
+  ];
+
+  return (
+    <div
+      onPointerDown={(e) => startDrag(e, "move")}
+      onClick={(e) => e.stopPropagation()}
+      className="group absolute flex cursor-move select-none items-center justify-between rounded border-2 px-1.5 text-[9px] font-semibold uppercase shadow-sm"
+      style={{
+        left: `${field.x * 100}%`,
+        top: `${field.y * 100}%`,
+        width: `${field.width * 100}%`,
+        height: `${field.height * 100}%`,
+        borderColor: color,
+        backgroundColor: `${color}25`,
+        color,
+        touchAction: "none",
+      }}
+    >
+      <span className="pointer-events-none truncate">{label}</span>
+      <button
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+        className="rounded p-0.5 hover:bg-white/40"
+        aria-label="Remove"
+      >
+        <X className="h-2.5 w-2.5" />
+      </button>
+      {handles.map((h) => (
+        <span
+          key={h.key}
+          onPointerDown={(e) => startDrag(e, h.key)}
+          className={cn(
+            "absolute h-2 w-2 rounded-sm border bg-white opacity-0 transition group-hover:opacity-100",
+            h.cls,
+          )}
+          style={{ borderColor: color, touchAction: "none" }}
+        />
+      ))}
+    </div>
+  );
+}
+

@@ -31,6 +31,7 @@ export function DocumentPagePreview({
     <div className={cn("flex flex-col items-center", className)}>
       <div
         onClick={onClick}
+        data-page-surface
         className={cn(
           "relative aspect-[1/1.414] w-full overflow-hidden rounded border bg-white shadow-sm",
           onClick && "cursor-crosshair",
