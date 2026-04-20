@@ -10,8 +10,8 @@ import { getSession, login } from "@/lib/auth";
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Connexion — Goodflag" },
-      { name: "description", content: "Connectez-vous à votre espace de signature électronique." },
+      { title: "Connexion — Usign" },
+      { name: "description", content: "Connectez-vous à votre espace Usign de signature électronique." },
     ],
   }),
   component: LoginPage,
@@ -37,7 +37,7 @@ function LoginPage() {
   const toggleLang = () => {
     const next = i18n.language === "fr" ? "en" : "fr";
     i18n.changeLanguage(next);
-    localStorage.setItem("goodflag.lang", next);
+    localStorage.setItem("usign.lang", next);
   };
 
   return (
@@ -49,11 +49,11 @@ function LoginPage() {
             La signature électronique<br />sécurisée pour vos équipes.
           </h2>
           <p className="max-w-md text-sidebar-foreground/70">
-            Centralisez vos parapheurs, suivez l'avancement des signatures et archivez vos documents
-            en toute sérénité.
+            Centralisez vos parapheurs, suivez l'avancement des signatures et archivez vos
+            documents en toute sérénité avec Usign.
           </p>
         </div>
-        <div className="text-xs text-sidebar-foreground/60">© Goodflag Community</div>
+        <div className="text-xs text-sidebar-foreground/60">© Usign</div>
       </div>
       <div className="flex flex-1 flex-col">
         <div className="flex justify-end p-4">
@@ -95,7 +95,7 @@ function LoginPage() {
                 />
               </div>
             </div>
-            <Button type="submit" className="w-full bg-[oklch(0.7_0.16_240)] text-white hover:bg-[oklch(0.65_0.18_240)]">
+            <Button type="submit" className="w-full bg-action text-action-foreground hover:opacity-90">
               {t("auth.submit")}
             </Button>
             <p className="text-center text-xs text-muted-foreground">{t("auth.demo")}</p>

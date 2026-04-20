@@ -11,8 +11,8 @@ import type { BinderStatus } from "@/lib/mockData";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Accueil — Goodflag" },
-      { name: "description", content: "Tableau de bord de signature électronique." },
+      { title: "Accueil — Usign" },
+      { name: "description", content: "Tableau de bord de signature électronique Usign." },
     ],
   }),
   component: HomePage,
@@ -70,7 +70,8 @@ function HomePage() {
             {STATUSES.map((s) => (
               <Link
                 key={s}
-                to={`/binders/${s}`}
+                to="/binders/$status"
+                params={{ status: s }}
                 className="group flex flex-col overflow-hidden rounded-lg border bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
               >
                 <div
