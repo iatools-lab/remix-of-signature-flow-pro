@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as ContactsRouteImport } from './routes/contacts'
@@ -18,6 +19,11 @@ import { Route as BindersStatusRouteImport } from './routes/binders.$status'
 import { Route as SignBinderIdSignerIdRouteImport } from './routes/sign.$binderId.$signerId'
 import { Route as BindersDetailIdRouteImport } from './routes/binders.detail.$id'
 
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/contacts': typeof ContactsRoute
   '/documents': typeof DocumentsRoute
   '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
   '/binders/$status': typeof BindersStatusRoute
   '/binders/': typeof BindersIndexRoute
   '/binders/detail/$id': typeof BindersDetailIdRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/contacts': typeof ContactsRoute
   '/documents': typeof DocumentsRoute
   '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
   '/binders/$status': typeof BindersStatusRoute
   '/binders': typeof BindersIndexRoute
   '/binders/detail/$id': typeof BindersDetailIdRoute
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/contacts': typeof ContactsRoute
   '/documents': typeof DocumentsRoute
   '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
   '/binders/$status': typeof BindersStatusRoute
   '/binders/': typeof BindersIndexRoute
   '/binders/detail/$id': typeof BindersDetailIdRoute
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/documents'
     | '/login'
+    | '/signup'
     | '/binders/$status'
     | '/binders/'
     | '/binders/detail/$id'
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/documents'
     | '/login'
+    | '/signup'
     | '/binders/$status'
     | '/binders'
     | '/binders/detail/$id'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/documents'
     | '/login'
+    | '/signup'
     | '/binders/$status'
     | '/binders/'
     | '/binders/detail/$id'
@@ -128,6 +140,7 @@ export interface RootRouteChildren {
   ContactsRoute: typeof ContactsRoute
   DocumentsRoute: typeof DocumentsRoute
   LoginRoute: typeof LoginRoute
+  SignupRoute: typeof SignupRoute
   BindersStatusRoute: typeof BindersStatusRoute
   BindersIndexRoute: typeof BindersIndexRoute
   BindersDetailIdRoute: typeof BindersDetailIdRoute
@@ -136,6 +149,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -200,6 +220,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactsRoute: ContactsRoute,
   DocumentsRoute: DocumentsRoute,
   LoginRoute: LoginRoute,
+  SignupRoute: SignupRoute,
   BindersStatusRoute: BindersStatusRoute,
   BindersIndexRoute: BindersIndexRoute,
   BindersDetailIdRoute: BindersDetailIdRoute,
@@ -208,3 +229,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
