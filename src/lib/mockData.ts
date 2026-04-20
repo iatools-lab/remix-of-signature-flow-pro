@@ -4,13 +4,40 @@ export type BinderDocument = {
   id: string;
   name: string;
   size?: number;
+  pages?: number; // mocked page count
 };
+
+export type BinderAttachment = {
+  id: string;
+  name: string;
+  size?: number;
+};
+
+export type SignerStatus = "pending" | "signed" | "declined";
 
 export type BinderSigner = {
   id: string;
   order: number;
   name: string;
   email: string;
+  color?: string; // assigned color for placement
+  status?: SignerStatus;
+  signedAt?: string;
+  signatureMethod?: "drawn" | "typed" | "image" | "otp";
+  signatureData?: string; // dataURL or typed name
+};
+
+export type SignatureField = {
+  id: string;
+  documentId: string;
+  page: number; // 1-based
+  x: number; // 0..1 relative
+  y: number; // 0..1 relative
+  width: number; // 0..1 relative
+  height: number; // 0..1 relative
+  signerId: string;
+  signedAt?: string;
+  signatureData?: string;
 };
 
 export type BinderNotifications = {
@@ -35,7 +62,9 @@ export type Binder = {
   externalArchive?: string;
   consolidation: boolean;
   documents?: BinderDocument[];
+  attachments?: BinderAttachment[];
   signers?: BinderSigner[];
+  signatureFields?: SignatureField[];
   notifications?: BinderNotifications;
 };
 
@@ -47,6 +76,17 @@ export type Contact = {
   phone?: string;
   company?: string;
 };
+
+export const SIGNER_COLORS = [
+  "#0EA5E9",
+  "#F59E0B",
+  "#10B981",
+  "#EF4444",
+  "#8B5CF6",
+  "#EC4899",
+  "#14B8A6",
+  "#F97316",
+];
 
 export const initialBinders: Binder[] = [
   {
