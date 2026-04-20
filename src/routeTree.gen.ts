@@ -15,6 +15,7 @@ import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BindersIndexRouteImport } from './routes/binders.index'
 import { Route as BindersStatusRouteImport } from './routes/binders.$status'
+import { Route as SignBinderIdSignerIdRouteImport } from './routes/sign.$binderId.$signerId'
 import { Route as BindersDetailIdRouteImport } from './routes/binders.detail.$id'
 
 const LoginRoute = LoginRouteImport.update({
@@ -47,6 +48,11 @@ const BindersStatusRoute = BindersStatusRouteImport.update({
   path: '/binders/$status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SignBinderIdSignerIdRoute = SignBinderIdSignerIdRouteImport.update({
+  id: '/sign/$binderId/$signerId',
+  path: '/sign/$binderId/$signerId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BindersDetailIdRoute = BindersDetailIdRouteImport.update({
   id: '/binders/detail/$id',
   path: '/binders/detail/$id',
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/binders/$status': typeof BindersStatusRoute
   '/binders/': typeof BindersIndexRoute
   '/binders/detail/$id': typeof BindersDetailIdRoute
+  '/sign/$binderId/$signerId': typeof SignBinderIdSignerIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByTo {
   '/binders/$status': typeof BindersStatusRoute
   '/binders': typeof BindersIndexRoute
   '/binders/detail/$id': typeof BindersDetailIdRoute
+  '/sign/$binderId/$signerId': typeof SignBinderIdSignerIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   '/binders/$status': typeof BindersStatusRoute
   '/binders/': typeof BindersIndexRoute
   '/binders/detail/$id': typeof BindersDetailIdRoute
+  '/sign/$binderId/$signerId': typeof SignBinderIdSignerIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/binders/$status'
     | '/binders/'
     | '/binders/detail/$id'
+    | '/sign/$binderId/$signerId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/binders/$status'
     | '/binders'
     | '/binders/detail/$id'
+    | '/sign/$binderId/$signerId'
   id:
     | '__root__'
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/binders/$status'
     | '/binders/'
     | '/binders/detail/$id'
+    | '/sign/$binderId/$signerId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +131,7 @@ export interface RootRouteChildren {
   BindersStatusRoute: typeof BindersStatusRoute
   BindersIndexRoute: typeof BindersIndexRoute
   BindersDetailIdRoute: typeof BindersDetailIdRoute
+  SignBinderIdSignerIdRoute: typeof SignBinderIdSignerIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -165,6 +178,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BindersStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sign/$binderId/$signerId': {
+      id: '/sign/$binderId/$signerId'
+      path: '/sign/$binderId/$signerId'
+      fullPath: '/sign/$binderId/$signerId'
+      preLoaderRoute: typeof SignBinderIdSignerIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/binders/detail/$id': {
       id: '/binders/detail/$id'
       path: '/binders/detail/$id'
@@ -183,16 +203,8 @@ const rootRouteChildren: RootRouteChildren = {
   BindersStatusRoute: BindersStatusRoute,
   BindersIndexRoute: BindersIndexRoute,
   BindersDetailIdRoute: BindersDetailIdRoute,
+  SignBinderIdSignerIdRoute: SignBinderIdSignerIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

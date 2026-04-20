@@ -4,8 +4,10 @@ import {
   initialContacts,
   type Binder,
   type BinderDocument,
+  type BinderAttachment,
   type BinderSigner,
   type BinderNotifications,
+  type SignatureField,
   type Contact,
 } from "./mockData";
 
@@ -29,9 +31,10 @@ function save<T>(key: string, value: T) {
 }
 
 export function useBinders() {
-  const [binders, setBinders] = useState<Binder[]>(() => load(BINDER_KEY, initialBinders));
+  const [binders, setBinders] = useState<Binder[]>(initialBinders);
 
   useEffect(() => {
+    setBinders(load(BINDER_KEY, initialBinders));
     const onChange = (e: Event) => {
       if ((e as CustomEvent).detail === BINDER_KEY) {
         setBinders(load(BINDER_KEY, initialBinders));
@@ -50,7 +53,9 @@ export function useBinders() {
       ownerEmail: string;
       ownerInitials: string;
       documents?: BinderDocument[];
+      attachments?: BinderAttachment[];
       signers?: BinderSigner[];
+      signatureFields?: SignatureField[];
       notifications?: BinderNotifications;
       consolidation?: boolean;
     }) => {
@@ -69,7 +74,9 @@ export function useBinders() {
         progress: 0,
         consolidation: data.consolidation ?? false,
         documents: data.documents ?? [],
-        signers: data.signers ?? [],
+        attachments: data.attachments ?? [],
+        signers: (data.signers ?? []).map((s) => ({ ...s, status: s.status ?? "pending" })),
+        signatureFields: data.signatureFields ?? [],
         notifications: data.notifications ?? { onStart: true, onComplete: true, reminders: false },
       };
       const list = [next, ...load<Binder[]>(BINDER_KEY, initialBinders)];
@@ -91,13 +98,66 @@ export function useBinders() {
     save(BINDER_KEY, list);
   }, []);
 
-  return { binders, create, remove, update };
+  /**
+   * Record a signature for a given signer: marks the signer as signed,
+   * fills in all their signature fields, recomputes progress and status.
+   */
+  const signAs = useCallback(
+    (
+      binderId: string,
+      signerId: string,
+      payload: {
+        method: BinderSigner["signatureMethod"];
+        signatureData: string;
+      },
+    ) => {
+      const list = load<Binder[]>(BINDER_KEY, initialBinders);
+      const now = new Date().toISOString();
+      const next = list.map((b) => {
+        if (b.id !== binderId) return b;
+        const signers = (b.signers ?? []).map((s) =>
+          s.id === signerId
+            ? {
+                ...s,
+                status: "signed" as const,
+                signedAt: now,
+                signatureMethod: payload.method,
+                signatureData: payload.signatureData,
+              }
+            : s,
+        );
+        const fields = (b.signatureFields ?? []).map((f) =>
+          f.signerId === signerId
+            ? { ...f, signedAt: now, signatureData: payload.signatureData }
+            : f,
+        );
+        const total = signers.length || 1;
+        const signedCount = signers.filter((s) => s.status === "signed").length;
+        const progress = Math.round((signedCount / total) * 100);
+        const allSigned = signers.length > 0 && signedCount === signers.length;
+        return {
+          ...b,
+          signers,
+          signatureFields: fields,
+          progress,
+          startedAt: b.startedAt ?? now,
+          status: allSigned ? ("finished" as const) : ("started" as const),
+          updatedAt: now,
+        };
+      });
+      save(BINDER_KEY, next);
+    },
+    [],
+  );
+
+  return { binders, create, remove, update, signAs };
 }
 
 export function useContacts() {
-  const [contacts, setContacts] = useState<Contact[]>(() => load(CONTACT_KEY, initialContacts));
+  const [contacts, setContacts] = useState<Contact[]>(initialContacts);
 
   useEffect(() => {
+    setContacts(load(CONTACT_KEY, initialContacts));
     const onChange = (e: Event) => {
       if ((e as CustomEvent).detail === CONTACT_KEY) {
         setContacts(load(CONTACT_KEY, initialContacts));

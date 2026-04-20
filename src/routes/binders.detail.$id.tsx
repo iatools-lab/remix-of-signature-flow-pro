@@ -2,12 +2,27 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  X, MessageSquare, ChevronLeft, ChevronRight, Pencil, Plus, Download, HelpCircle, Users,
+  X,
+  MessageSquare,
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+  Plus,
+  Download,
+  HelpCircle,
+  Users,
+  FileText,
+  Paperclip,
+  Copy,
+  ExternalLink,
+  CheckCircle2,
+  Clock,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useBinders } from "@/lib/store";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SIGNER_COLORS } from "@/lib/mockData";
 
 export const Route = createFileRoute("/binders/detail/$id")({
   head: () => ({ meta: [{ title: "Détail parapheur — Usign" }] }),
@@ -23,6 +38,7 @@ function BinderDetail() {
   const navigate = useNavigate();
   const binder = binders.find((b) => b.id === id);
   const [tab, setTab] = useState<Tab>("general");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   if (!binder) {
     return (
@@ -40,7 +56,11 @@ function BinderDetail() {
   const fmt = (iso?: string) =>
     iso
       ? new Date(iso).toLocaleString(i18n.language === "fr" ? "fr-FR" : "en-US", {
-          day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit",
+          day: "2-digit",
+          month: "2-digit",
+          year: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
         })
       : "—";
 
@@ -51,6 +71,22 @@ function BinderDetail() {
     { key: "notifications", label: t("detail.tabs.notifications") },
     { key: "operations", label: t("detail.tabs.operations") },
   ];
+
+  const buildSignLink = (signerId: string) => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return `${origin}/sign/${binder.id}/${signerId}`;
+  };
+
+  const copyLink = async (signerId: string) => {
+    const url = buildSignLink(signerId);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedId(signerId);
+      setTimeout(() => setCopiedId(null), 1600);
+    } catch {
+      // ignore
+    }
+  };
 
   return (
     <AppShell>
@@ -86,7 +122,9 @@ function BinderDetail() {
                 <ChevronRight className="h-5 w-5" />
               </button>
               <button
-                onClick={() => navigate({ to: "/binders/$status", params: { status: binder.status } })}
+                onClick={() =>
+                  navigate({ to: "/binders/$status", params: { status: binder.status } })
+                }
                 className="rounded p-2 hover:bg-sidebar-accent"
                 aria-label="Close"
               >
@@ -155,9 +193,73 @@ function BinderDetail() {
             </Section>
           )}
 
+          {/* Signers + signing links */}
           {(tab === "steps" || tab === "general") && (
-            <Section title={t("detail.tabs.steps")}>
-              <button className="mx-auto flex items-center gap-3 py-6 text-action">
+            <Section title={t("detail.signersTitle")}>
+              {(binder.signers?.length ?? 0) === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  {t("newBinder.noSigners")}
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {binder.signers?.map((s, i) => {
+                    const color = s.color ?? SIGNER_COLORS[i % SIGNER_COLORS.length];
+                    const zoneCount = (binder.signatureFields ?? []).filter(
+                      (f) => f.signerId === s.id,
+                    ).length;
+                    const signed = s.status === "signed";
+                    return (
+                      <li
+                        key={s.id}
+                        className="flex flex-wrap items-center gap-3 rounded-md border bg-card px-3 py-2.5"
+                      >
+                        <div
+                          className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white"
+                          style={{ backgroundColor: color }}
+                        >
+                          {i + 1}
+                        </div>
+                        <div className="flex-1 leading-tight">
+                          <div className="text-sm font-medium text-foreground">{s.name}</div>
+                          <div className="text-xs text-muted-foreground">{s.email}</div>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          <span className="rounded-full bg-muted px-2 py-0.5">
+                            {zoneCount} {t("detail.zonesAssigned").toLowerCase()}
+                          </span>
+                          {signed ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-action/15 px-2 py-0.5 text-action">
+                              <CheckCircle2 className="h-3 w-3" /> {t("detail.signed")}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">
+                              <Clock className="h-3 w-3" /> {t("detail.pending")}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => copyLink(s.id)}
+                            className="inline-flex items-center gap-1 rounded-md border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-accent"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                            {copiedId === s.id ? t("common.copied") : t("detail.copyLink")}
+                          </button>
+                          <Link
+                            to="/sign/$binderId/$signerId"
+                            params={{ binderId: binder.id, signerId: s.id }}
+                            target="_blank"
+                            className="inline-flex items-center gap-1 rounded-md bg-action px-2.5 py-1.5 text-xs font-medium text-action-foreground hover:opacity-90"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" /> {t("detail.openLink")}
+                          </Link>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <button className="mx-auto mt-4 flex items-center gap-3 py-3 text-action">
                 <Plus className="h-4 w-4" />
                 <span className="font-medium">{t("detail.addStep")}</span>
               </button>
@@ -165,8 +267,8 @@ function BinderDetail() {
           )}
 
           {(tab === "documents" || tab === "general") && (
-            <Section title={t("detail.tabs.documents")}>
-              <div className="flex flex-wrap justify-center gap-5 py-4">
+            <Section title={t("detail.documentsTitle")}>
+              {(binder.documents?.length ?? 0) === 0 ? (
                 <DropZone label={t("detail.addDocs")}>
                   <label className="flex items-start gap-2 text-xs text-foreground">
                     <Checkbox defaultChecked /> {t("detail.convertPdf")}
@@ -175,8 +277,46 @@ function BinderDetail() {
                     <Checkbox defaultChecked /> {t("detail.unzip")}
                   </label>
                 </DropZone>
-                <DropZone label={t("detail.addAttachments")} />
-              </div>
+              ) : (
+                <ul className="space-y-2">
+                  {binder.documents?.map((d) => {
+                    const zones = (binder.signatureFields ?? []).filter(
+                      (f) => f.documentId === d.id,
+                    ).length;
+                    return (
+                      <li
+                        key={d.id}
+                        className="flex items-center gap-3 rounded-md border bg-card px-3 py-2.5"
+                      >
+                        <FileText className="h-4 w-4 text-action" />
+                        <span className="flex-1 text-sm text-foreground">{d.name}</span>
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          {zones} {t("detail.zonesAssigned").toLowerCase()}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+              {(binder.attachments?.length ?? 0) > 0 && (
+                <div className="mt-6">
+                  <h4 className="mb-2 text-sm font-semibold text-foreground">
+                    {t("detail.attachmentsTitle")}
+                  </h4>
+                  <ul className="space-y-2">
+                    {binder.attachments?.map((a) => (
+                      <li
+                        key={a.id}
+                        className="flex items-center gap-3 rounded-md border bg-card px-3 py-2.5"
+                      >
+                        <Paperclip className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-foreground">{a.name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </Section>
           )}
 
@@ -239,7 +379,7 @@ function Row({ label, children }: { label: React.ReactNode; children: React.Reac
 
 function DropZone({ label, children }: { label: string; children?: React.ReactNode }) {
   return (
-    <div className="flex w-60 flex-col items-center gap-3 rounded-lg border-2 border-dashed border-action/40 bg-action/5 p-5 text-center">
+    <div className="mx-auto flex w-60 flex-col items-center gap-3 rounded-lg border-2 border-dashed border-action/40 bg-action/5 p-5 text-center">
       <Download className="h-5 w-5 text-action" />
       <div className="text-sm font-medium text-action">{label}</div>
       {children && <div className="space-y-1.5">{children}</div>}
@@ -247,7 +387,13 @@ function DropZone({ label, children }: { label: string; children?: React.ReactNo
   );
 }
 
-function OpButton({ icon: Icon, label }: { icon: React.ComponentType<{ className?: string }>; label: string }) {
+function OpButton({
+  icon: Icon,
+  label,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+}) {
   return (
     <button className="flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-medium text-foreground transition hover:bg-accent">
       <Icon className="h-4 w-4" /> {label}
