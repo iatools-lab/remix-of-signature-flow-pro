@@ -10,15 +10,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type { BinderStatus } from "@/lib/mockData";
 
-const VALID: BinderStatus[] = ["draft", "started", "finished", "stopped", "archived"];
+type StatusFilter = BinderStatus | "all";
+const TABS: StatusFilter[] = ["all", "draft", "started", "finished", "stopped", "archived"];
 
 export const Route = createFileRoute("/binders/$status")({
   parseParams: (params) => ({
-    status: (VALID.includes(params.status as BinderStatus) ? params.status : "draft") as BinderStatus,
+    status: (TABS.includes(params.status as StatusFilter) ? params.status : "all") as StatusFilter,
   }),
-  head: () => ({
-    meta: [{ title: "Parapheurs — Goodflag" }],
-  }),
+  head: () => ({ meta: [{ title: "Parapheurs — Usign" }] }),
   component: BindersByStatus,
 });
 
@@ -33,14 +32,15 @@ function BindersByStatus() {
   const filtered = useMemo(
     () =>
       binders
-        .filter((b) => b.status === status)
+        .filter((b) => (status === "all" ? true : b.status === status))
         .filter((b) => b.name.toLowerCase().includes(query.toLowerCase())),
     [binders, status, query],
   );
 
-  const fmt = (iso: string) => new Date(iso).toLocaleString(i18n.language === "fr" ? "fr-FR" : "en-US", {
-    day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit",
-  });
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleString(i18n.language === "fr" ? "fr-FR" : "en-US", {
+      day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit",
+    });
 
   return (
     <AppShell>
@@ -64,28 +64,47 @@ function BindersByStatus() {
             </Button>
             <button
               onClick={() => setOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-action text-action-foreground shadow-sm transition hover:opacity-90"
-              aria-label="New binder"
+              className="flex h-9 items-center gap-2 rounded-full bg-action px-4 text-sm font-medium text-action-foreground shadow-sm transition hover:opacity-90"
             >
-              <Plus className="h-5 w-5" />
+              <Plus className="h-4 w-4" />
+              {t("home.newBinder")}
             </button>
           </div>
         </div>
 
-        <div className="flex gap-2">
-          {VALID.map((s) => (
-            <Link
-              key={s}
-              to="/binders/$status"
-              params={{ status: s }}
-              className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition ${
-                s === status ? "border-transparent bg-foreground text-background" : "bg-card text-foreground hover:bg-accent"
-              }`}
-            >
-              <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: `var(--status-${s})` }} />
-              {t(`status.${s}`)}
-            </Link>
-          ))}
+        <div className="flex flex-wrap gap-2">
+          {TABS.map((s) => {
+            const active = s === status;
+            const count =
+              s === "all" ? binders.length : binders.filter((b) => b.status === s).length;
+            return (
+              <Link
+                key={s}
+                to="/binders/$status"
+                params={{ status: s }}
+                className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                  active
+                    ? "border-transparent bg-foreground text-background"
+                    : "bg-card text-foreground hover:bg-accent"
+                }`}
+              >
+                {s !== "all" && (
+                  <span
+                    className="h-2 w-2 rounded-sm"
+                    style={{ backgroundColor: `var(--status-${s})` }}
+                  />
+                )}
+                {t(`status.${s}`)}
+                <span
+                  className={`rounded-full px-1.5 text-[10px] font-semibold ${
+                    active ? "bg-background/20 text-background" : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {count}
+                </span>
+              </Link>
+            );
+          })}
         </div>
 
         <div className="overflow-hidden rounded-lg border bg-card">
@@ -112,13 +131,17 @@ function BindersByStatus() {
               {filtered.map((b) => (
                 <tr key={b.id} className="border-b last:border-0 hover:bg-muted/30">
                   <td className="px-4 py-3">
-                    <Link to="/binders/detail/$id" params={{ id: b.id }} className="font-medium text-foreground hover:underline">
+                    <Link
+                      to="/binders/detail/$id"
+                      params={{ id: b.id }}
+                      className="font-medium text-foreground hover:underline"
+                    >
                       {b.name}
                     </Link>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-semibold text-brand-foreground">
                         {b.ownerInitials}
                       </span>
                       <div className="leading-tight">
