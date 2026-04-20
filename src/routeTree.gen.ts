@@ -9,38 +9,141 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as DocumentsRouteImport } from './routes/documents'
+import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BindersIndexRouteImport } from './routes/binders.index'
+import { Route as BindersStatusRouteImport } from './routes/binders.$status'
+import { Route as BindersDetailIdRouteImport } from './routes/binders.detail.$id'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentsRoute = DocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactsRoute = ContactsRouteImport.update({
+  id: '/contacts',
+  path: '/contacts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BindersIndexRoute = BindersIndexRouteImport.update({
+  id: '/binders/',
+  path: '/binders/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BindersStatusRoute = BindersStatusRouteImport.update({
+  id: '/binders/$status',
+  path: '/binders/$status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BindersDetailIdRoute = BindersDetailIdRouteImport.update({
+  id: '/binders/detail/$id',
+  path: '/binders/detail/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/contacts': typeof ContactsRoute
+  '/documents': typeof DocumentsRoute
+  '/login': typeof LoginRoute
+  '/binders/$status': typeof BindersStatusRoute
+  '/binders/': typeof BindersIndexRoute
+  '/binders/detail/$id': typeof BindersDetailIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/contacts': typeof ContactsRoute
+  '/documents': typeof DocumentsRoute
+  '/login': typeof LoginRoute
+  '/binders/$status': typeof BindersStatusRoute
+  '/binders': typeof BindersIndexRoute
+  '/binders/detail/$id': typeof BindersDetailIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/contacts': typeof ContactsRoute
+  '/documents': typeof DocumentsRoute
+  '/login': typeof LoginRoute
+  '/binders/$status': typeof BindersStatusRoute
+  '/binders/': typeof BindersIndexRoute
+  '/binders/detail/$id': typeof BindersDetailIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/contacts'
+    | '/documents'
+    | '/login'
+    | '/binders/$status'
+    | '/binders/'
+    | '/binders/detail/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/contacts'
+    | '/documents'
+    | '/login'
+    | '/binders/$status'
+    | '/binders'
+    | '/binders/detail/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/contacts'
+    | '/documents'
+    | '/login'
+    | '/binders/$status'
+    | '/binders/'
+    | '/binders/detail/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ContactsRoute: typeof ContactsRoute
+  DocumentsRoute: typeof DocumentsRoute
+  LoginRoute: typeof LoginRoute
+  BindersStatusRoute: typeof BindersStatusRoute
+  BindersIndexRoute: typeof BindersIndexRoute
+  BindersDetailIdRoute: typeof BindersDetailIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents': {
+      id: '/documents'
+      path: '/documents'
+      fullPath: '/documents'
+      preLoaderRoute: typeof DocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contacts': {
+      id: '/contacts'
+      path: '/contacts'
+      fullPath: '/contacts'
+      preLoaderRoute: typeof ContactsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,21 +151,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/binders/': {
+      id: '/binders/'
+      path: '/binders'
+      fullPath: '/binders/'
+      preLoaderRoute: typeof BindersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/binders/$status': {
+      id: '/binders/$status'
+      path: '/binders/$status'
+      fullPath: '/binders/$status'
+      preLoaderRoute: typeof BindersStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/binders/detail/$id': {
+      id: '/binders/detail/$id'
+      path: '/binders/detail/$id'
+      fullPath: '/binders/detail/$id'
+      preLoaderRoute: typeof BindersDetailIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ContactsRoute: ContactsRoute,
+  DocumentsRoute: DocumentsRoute,
+  LoginRoute: LoginRoute,
+  BindersStatusRoute: BindersStatusRoute,
+  BindersIndexRoute: BindersIndexRoute,
+  BindersDetailIdRoute: BindersDetailIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
