@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   X,
@@ -17,13 +17,25 @@ import {
   ExternalLink,
   CheckCircle2,
   Clock,
+  Trash2,
+  Lock,
+  Play,
+  Check,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useBinders } from "@/lib/store";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format";
-import { SIGNER_COLORS } from "@/lib/mockData";
+import {
+  SIGNER_COLORS,
+  type BinderDocument,
+  type BinderAttachment,
+  type BinderSigner,
+} from "@/lib/mockData";
 
 export const Route = createFileRoute("/binders/detail/$id")({
   head: () => ({ meta: [{ title: "Détail parapheur — Usign" }] }),
@@ -35,11 +47,15 @@ type Tab = "general" | "steps" | "documents" | "notifications" | "operations";
 function BinderDetail() {
   const { id } = Route.useParams();
   const { t, i18n } = useTranslation();
-  const { binders } = useBinders();
+  const { binders, update } = useBinders();
   const navigate = useNavigate();
   const binder = binders.find((b) => b.id === id);
   const [tab, setTab] = useState<Tab>("general");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [editingField, setEditingField] = useState<null | "name" | "description" | "group">(null);
+  const [draftValue, setDraftValue] = useState("");
+  const docInputRef = useRef<HTMLInputElement>(null);
+  const attInputRef = useRef<HTMLInputElement>(null);
 
   if (!binder) {
     return (
