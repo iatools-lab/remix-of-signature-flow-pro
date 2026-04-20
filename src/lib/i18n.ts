@@ -370,16 +370,26 @@ const resources = {
   },
 };
 
+const stored =
+  typeof window !== "undefined"
+    ? (localStorage.getItem("usign.lang") ?? localStorage.getItem("goodflag.lang"))
+    : null;
+
 if (!i18n.isInitialized) {
-  const stored =
-    typeof window !== "undefined"
-      ? (localStorage.getItem("usign.lang") ?? localStorage.getItem("goodflag.lang"))
-      : null;
   i18n.use(initReactI18next).init({
     resources,
-    lng: stored ?? "fr",
+    lng: "fr", // Always start with FR for SSR stability; client switches in useEffect
     fallbackLng: "fr",
     interpolation: { escapeValue: false },
+    react: { useSuspense: false },
+  });
+}
+
+// On client, switch to stored language after initial hydration
+if (typeof window !== "undefined" && stored && stored !== i18n.language) {
+  // Defer until after hydration to avoid mismatch
+  queueMicrotask(() => {
+    if (i18n.language !== stored) i18n.changeLanguage(stored);
   });
 }
 
