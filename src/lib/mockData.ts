@@ -1,5 +1,24 @@
 export type BinderStatus = "draft" | "started" | "finished" | "stopped" | "archived";
 
+export type BinderDocument = {
+  id: string;
+  name: string;
+  size?: number;
+};
+
+export type BinderSigner = {
+  id: string;
+  order: number;
+  name: string;
+  email: string;
+};
+
+export type BinderNotifications = {
+  onStart: boolean;
+  onComplete: boolean;
+  reminders: boolean;
+};
+
 export type Binder = {
   id: string;
   name: string;
@@ -15,6 +34,9 @@ export type Binder = {
   progress: number;
   externalArchive?: string;
   consolidation: boolean;
+  documents?: BinderDocument[];
+  signers?: BinderSigner[];
+  notifications?: BinderNotifications;
 };
 
 export type Contact = {

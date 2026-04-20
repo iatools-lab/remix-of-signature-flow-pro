@@ -1,5 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
-import { initialBinders, initialContacts, type Binder, type Contact } from "./mockData";
+import {
+  initialBinders,
+  initialContacts,
+  type Binder,
+  type BinderDocument,
+  type BinderSigner,
+  type BinderNotifications,
+  type Contact,
+} from "./mockData";
 
 const BINDER_KEY = "goodflag.binders";
 const CONTACT_KEY = "goodflag.contacts";
@@ -33,26 +41,43 @@ export function useBinders() {
     return () => window.removeEventListener("goodflag:store", onChange);
   }, []);
 
-  const create = useCallback((data: { name: string; description?: string; ownerName: string; ownerEmail: string; ownerInitials: string }) => {
-    const now = new Date().toISOString();
-    const next: Binder = {
-      id: `b_${Date.now()}`,
-      name: data.name,
-      description: data.description,
-      ownerName: data.ownerName,
-      ownerEmail: data.ownerEmail,
-      ownerInitials: data.ownerInitials,
-      group: "Utilisateurs Principaux",
-      createdAt: now,
-      updatedAt: now,
-      status: "draft",
-      progress: 0,
-      consolidation: false,
-    };
-    const list = [next, ...load<Binder[]>(BINDER_KEY, initialBinders)];
-    save(BINDER_KEY, list);
-    return next;
-  }, []);
+  const create = useCallback(
+    (data: {
+      name: string;
+      description?: string;
+      group?: string;
+      ownerName: string;
+      ownerEmail: string;
+      ownerInitials: string;
+      documents?: BinderDocument[];
+      signers?: BinderSigner[];
+      notifications?: BinderNotifications;
+      consolidation?: boolean;
+    }) => {
+      const now = new Date().toISOString();
+      const next: Binder = {
+        id: `b_${Date.now()}`,
+        name: data.name,
+        description: data.description,
+        ownerName: data.ownerName,
+        ownerEmail: data.ownerEmail,
+        ownerInitials: data.ownerInitials,
+        group: data.group?.trim() || "Utilisateurs Principaux",
+        createdAt: now,
+        updatedAt: now,
+        status: "draft",
+        progress: 0,
+        consolidation: data.consolidation ?? false,
+        documents: data.documents ?? [],
+        signers: data.signers ?? [],
+        notifications: data.notifications ?? { onStart: true, onComplete: true, reminders: false },
+      };
+      const list = [next, ...load<Binder[]>(BINDER_KEY, initialBinders)];
+      save(BINDER_KEY, list);
+      return next;
+    },
+    [],
+  );
 
   const remove = useCallback((id: string) => {
     const list = load<Binder[]>(BINDER_KEY, initialBinders).filter((b) => b.id !== id);
