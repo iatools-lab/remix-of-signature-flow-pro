@@ -4,7 +4,7 @@ import { initReactI18next } from "react-i18next";
 const resources = {
   fr: {
     translation: {
-      app: { name: "Goodflag" },
+      app: { name: "Usign" },
       nav: {
         home: "Accueil",
         binders: "Parapheurs",
@@ -38,6 +38,7 @@ const resources = {
         binders: "Parapheurs",
       },
       status: {
+        all: "Tous",
         draft: "Brouillons",
         started: "Démarrés",
         finished: "Terminés",
@@ -75,6 +76,29 @@ const resources = {
         general: "Général",
         name: "Nom",
         description: "Description",
+        group: "Groupe",
+        steps: {
+          general: "Informations",
+          documents: "Documents",
+          signers: "Signataires",
+          notifications: "Notifications",
+          review: "Récapitulatif",
+        },
+        next: "Suivant",
+        back: "Retour",
+        create: "Créer le parapheur",
+        addDocument: "Ajouter un document",
+        addSigner: "Ajouter un signataire",
+        signerOrder: "Ordre",
+        signerName: "Nom",
+        signerEmail: "Email",
+        notifyOnStart: "Notifier au démarrage",
+        notifyOnComplete: "Notifier à la complétion",
+        notifyOnReminder: "Envoyer des rappels",
+        reviewIntro: "Vérifiez les informations avant de créer le parapheur.",
+        noDocuments: "Aucun document",
+        noSigners: "Aucun signataire",
+        consolidationLabel: "Consolidation autorisée",
       },
       detail: {
         title: "Détail du parapheur",
@@ -105,7 +129,7 @@ const resources = {
   },
   en: {
     translation: {
-      app: { name: "Goodflag" },
+      app: { name: "Usign" },
       nav: {
         home: "Home",
         binders: "Binders",
@@ -139,6 +163,7 @@ const resources = {
         binders: "Binders",
       },
       status: {
+        all: "All",
         draft: "Drafts",
         started: "Started",
         finished: "Finished",
@@ -176,6 +201,29 @@ const resources = {
         general: "General",
         name: "Name",
         description: "Description",
+        group: "Group",
+        steps: {
+          general: "Information",
+          documents: "Documents",
+          signers: "Signers",
+          notifications: "Notifications",
+          review: "Review",
+        },
+        next: "Next",
+        back: "Back",
+        create: "Create binder",
+        addDocument: "Add a document",
+        addSigner: "Add a signer",
+        signerOrder: "Order",
+        signerName: "Name",
+        signerEmail: "Email",
+        notifyOnStart: "Notify on start",
+        notifyOnComplete: "Notify on completion",
+        notifyOnReminder: "Send reminders",
+        reviewIntro: "Review the information before creating the binder.",
+        noDocuments: "No document",
+        noSigners: "No signer",
+        consolidationLabel: "Allow consolidation",
       },
       detail: {
         title: "Binder detail",
@@ -207,7 +255,9 @@ const resources = {
 };
 
 if (!i18n.isInitialized) {
-  const stored = typeof window !== "undefined" ? localStorage.getItem("goodflag.lang") : null;
+  const stored = typeof window !== "undefined"
+    ? (localStorage.getItem("usign.lang") ?? localStorage.getItem("goodflag.lang"))
+    : null;
   i18n.use(initReactI18next).init({
     resources,
     lng: stored ?? "fr",
