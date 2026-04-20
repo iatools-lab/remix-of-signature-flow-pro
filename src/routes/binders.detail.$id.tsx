@@ -22,6 +22,7 @@ import { AppShell } from "@/components/AppShell";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useBinders } from "@/lib/store";
 import { Checkbox } from "@/components/ui/checkbox";
+import { formatDateTime } from "@/lib/format";
 import { SIGNER_COLORS } from "@/lib/mockData";
 
 export const Route = createFileRoute("/binders/detail/$id")({
@@ -53,16 +54,7 @@ function BinderDetail() {
     );
   }
 
-  const fmt = (iso?: string) =>
-    iso
-      ? new Date(iso).toLocaleString(i18n.language === "fr" ? "fr-FR" : "en-US", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-        })
-      : "—";
+  const fmt = (iso?: string) => formatDateTime(iso, i18n.language);
 
   const TABS: { key: Tab; label: string }[] = [
     { key: "general", label: t("detail.tabs.general") },

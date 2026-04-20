@@ -8,6 +8,7 @@ import { NewBinderDialog } from "@/components/NewBinderDialog";
 import { useBinders } from "@/lib/store";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { formatDateTime } from "@/lib/format";
 import type { BinderStatus } from "@/lib/mockData";
 
 type StatusFilter = BinderStatus | "all";
@@ -37,10 +38,7 @@ function BindersByStatus() {
     [binders, status, query],
   );
 
-  const fmt = (iso: string) =>
-    new Date(iso).toLocaleString(i18n.language === "fr" ? "fr-FR" : "en-US", {
-      day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit",
-    });
+  const fmt = (iso: string) => formatDateTime(iso, i18n.language);
 
   return (
     <AppShell>

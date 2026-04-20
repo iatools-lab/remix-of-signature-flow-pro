@@ -33,19 +33,7 @@ function DocumentsPage() {
     [binders, query],
   );
 
-  // Deterministic UTC formatting → no SSR/client hydration mismatch.
-  const fmt = (iso: string) => {
-    const d = new Date(iso);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const dd = pad(d.getUTCDate());
-    const mm = pad(d.getUTCMonth() + 1);
-    const yy = String(d.getUTCFullYear()).slice(-2);
-    const hh = pad(d.getUTCHours());
-    const mi = pad(d.getUTCMinutes());
-    return i18n.language === "fr"
-      ? `${dd}/${mm}/${yy} ${hh}:${mi}`
-      : `${mm}/${dd}/${yy} ${hh}:${mi}`;
-  };
+  const fmt = (iso: string) => formatDateTime(iso, i18n.language);
 
   return (
     <AppShell>
