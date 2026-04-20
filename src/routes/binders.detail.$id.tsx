@@ -96,6 +96,102 @@ function BinderDetail() {
     }
   };
 
+  const editable = binder.status === "draft";
+
+  const startEdit = (field: "name" | "description" | "group", current: string) => {
+    if (!editable) return;
+    setEditingField(field);
+    setDraftValue(current);
+  };
+  const commitEdit = () => {
+    if (!editingField) return;
+    update(binder.id, { [editingField]: draftValue.trim() || undefined } as Partial<typeof binder>);
+    setEditingField(null);
+  };
+  const cancelEdit = () => setEditingField(null);
+
+  const toggleConsolidation = () => {
+    if (!editable) return;
+    update(binder.id, { consolidation: !binder.consolidation });
+  };
+
+  const toggleNotif = (key: "onStart" | "onComplete" | "reminders") => {
+    if (!editable) return;
+    const current = binder.notifications ?? { onStart: true, onComplete: true, reminders: false };
+    update(binder.id, { notifications: { ...current, [key]: !current[key] } });
+  };
+
+  const removeSigner = (signerId: string) => {
+    if (!editable) return;
+    if (!window.confirm(t("detail.confirmRemoveSigner"))) return;
+    const signers = (binder.signers ?? []).filter((s) => s.id !== signerId);
+    const signatureFields = (binder.signatureFields ?? []).filter((f) => f.signerId !== signerId);
+    update(binder.id, { signers, signatureFields });
+  };
+
+  const addSignerRow = () => {
+    if (!editable) return;
+    const list = binder.signers ?? [];
+    const order = list.length + 1;
+    const color = SIGNER_COLORS[list.length % SIGNER_COLORS.length];
+    const newSigner: BinderSigner = {
+      id: `s_${Date.now()}`,
+      order,
+      name: "Nouveau signataire",
+      email: "",
+      color,
+      status: "pending",
+    };
+    update(binder.id, { signers: [...list, newSigner] });
+  };
+
+  const updateSignerField = (signerId: string, patch: Partial<BinderSigner>) => {
+    if (!editable) return;
+    const signers = (binder.signers ?? []).map((s) => (s.id === signerId ? { ...s, ...patch } : s));
+    update(binder.id, { signers });
+  };
+
+  const removeDocument = (docId: string) => {
+    if (!editable) return;
+    if (!window.confirm(t("detail.confirmRemoveDocument"))) return;
+    const documents = (binder.documents ?? []).filter((d) => d.id !== docId);
+    const signatureFields = (binder.signatureFields ?? []).filter((f) => f.documentId !== docId);
+    update(binder.id, { documents, signatureFields });
+  };
+
+  const onPickDocs = (files: FileList | null) => {
+    if (!files || !editable) return;
+    const next: BinderDocument[] = Array.from(files).map((f, i) => ({
+      id: `d_${Date.now()}_${i}`,
+      name: f.name,
+      size: f.size,
+      pages: 1 + ((f.size ?? 1000) % 3),
+    }));
+    update(binder.id, { documents: [...(binder.documents ?? []), ...next] });
+  };
+
+  const removeAttachment = (attId: string) => {
+    if (!editable) return;
+    if (!window.confirm(t("detail.confirmRemoveAttachment"))) return;
+    const attachments = (binder.attachments ?? []).filter((a) => a.id !== attId);
+    update(binder.id, { attachments });
+  };
+
+  const onPickAttachments = (files: FileList | null) => {
+    if (!files || !editable) return;
+    const next: BinderAttachment[] = Array.from(files).map((f, i) => ({
+      id: `a_${Date.now()}_${i}`,
+      name: f.name,
+      size: f.size,
+    }));
+    update(binder.id, { attachments: [...(binder.attachments ?? []), ...next] });
+  };
+
+  const startBinder = () => {
+    if (!editable) return;
+    update(binder.id, { status: "started", startedAt: new Date().toISOString() });
+  };
+
   return (
     <AppShell>
       <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
