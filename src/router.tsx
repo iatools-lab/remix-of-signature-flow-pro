@@ -59,7 +59,14 @@ export const getRouter = () => {
     routeTree,
     context: {},
     scrollRestoration: true,
-    defaultPreloadStaleTime: 0,
+    // Preload routes on hover/touch for snappier navigation
+    defaultPreload: "intent",
+    defaultPreloadDelay: 50,
+    // Cache preloaded data for 30s to avoid refetch on actual click
+    defaultPreloadStaleTime: 30_000,
+    // Avoid showing pending fallbacks for fast transitions
+    defaultPendingMs: 200,
+    defaultPendingMinMs: 0,
     defaultErrorComponent: DefaultErrorComponent,
   });
 

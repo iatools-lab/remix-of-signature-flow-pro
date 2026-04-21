@@ -156,6 +156,12 @@ enum AuditAction {
   TEMPLATE_DELETED
   TEMPLATE_USED
 
+  // Signature personnelle
+  SAVED_SIGNATURE_CREATED
+  SAVED_SIGNATURE_UPDATED
+  SAVED_SIGNATURE_DELETED
+  SAVED_SIGNATURE_USED
+
   // Archivage
   ARCHIVE_EXPORTED
   ARCHIVE_RESTORED
@@ -211,6 +217,7 @@ model User {
   notifications     Notification[]
   ownedTemplates    BinderTemplate[]      @relation("TemplateOwner")
   auditEvents       AuditEvent[]          @relation("AuditActor")
+  savedSignature    SavedSignature?
 
   @@index([role, isActive])
   @@index([deletedAt])
@@ -251,6 +258,29 @@ model PasswordResetToken {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+// =====================================================================
+// SIGNATURE PERSONNELLE RÉUTILISABLE
+// =====================================================================
+
+/// Signature préenregistrée par un utilisateur, réutilisée automatiquement
+/// dans son inbox ("Tout signer en un clic"). Une seule par utilisateur.
+/// La donnée brute (PNG dataURL ou texte typé) reste côté serveur ;
+/// on stocke aussi un hash pour pouvoir auditer son usage.
+model SavedSignature {
+  id        String          @id @default(cuid())
+  userId    String          @unique
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  method    SignatureMethod
+  /// Données de signature (PNG base64, ou texte typé, ou clé du blob)
+  data      String
+  /// Hash SHA-256 de `data` — sert de preuve dans l'audit log
+  sha256    String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // =====================================================================
