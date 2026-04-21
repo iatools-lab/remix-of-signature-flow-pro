@@ -8,8 +8,10 @@ const resources = {
       nav: {
         home: "Accueil",
         binders: "Parapheurs",
+        inbox: "Attente de signature",
         documents: "Documents",
         contacts: "Contacts",
+        mySignature: "Ma signature",
       },
       common: {
         cancel: "Annuler",
@@ -211,8 +213,10 @@ const resources = {
       nav: {
         home: "Home",
         binders: "Binders",
+        inbox: "Awaiting signature",
         documents: "Documents",
         contacts: "Contacts",
+        mySignature: "My signature",
       },
       common: {
         cancel: "Cancel",
