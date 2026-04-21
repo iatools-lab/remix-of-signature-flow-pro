@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { Home, FileText, FilePlus2, Users, LogOut, Settings, Menu, Globe } from "lucide-react";
+import { Home, FileText, FilePlus2, Users, LogOut, Settings, Menu, Globe, Inbox, PenLine } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { Logo } from "./Logo";
@@ -71,8 +71,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const path = location.pathname;
   const isHome = path === "/";
   const isBinders = path.startsWith("/binders");
+  const isInbox = path.startsWith("/inbox");
   const isDocs = path.startsWith("/documents");
   const isContacts = path.startsWith("/contacts");
+  const isMySig = path.startsWith("/my-signature");
 
   const toggleLang = () => {
     const next = i18n.language === "fr" ? "en" : "fr";
@@ -99,8 +101,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 space-y-1 px-3 py-2">
           <NavItem to="/" icon={Home} label={t("nav.home")} active={isHome} />
           <NavItem to="/binders/all" icon={FilePlus2} label={t("nav.binders")} active={isBinders} />
+          <NavItem to="/inbox" icon={Inbox} label={t("nav.inbox")} active={isInbox} />
           <NavItem to="/documents" icon={FileText} label={t("nav.documents")} active={isDocs} />
           <NavItem to="/contacts" icon={Users} label={t("nav.contacts")} active={isContacts} />
+          <NavItem to="/my-signature" icon={PenLine} label={t("nav.mySignature")} active={isMySig} />
         </nav>
         <div className="px-4 py-3 text-[10px] uppercase tracking-widest text-sidebar-foreground/40">
           © Usign
@@ -118,11 +122,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 ? t("home.greeting", { name: session?.name ?? "" })
                 : isBinders
                   ? t("binders.title")
-                  : isDocs
-                    ? t("documents.title")
-                    : isContacts
-                      ? t("contacts.title")
-                      : ""}
+                  : isInbox
+                    ? t("inbox.title")
+                    : isDocs
+                      ? t("documents.title")
+                      : isContacts
+                        ? t("contacts.title")
+                        : isMySig
+                          ? t("mySignature.title")
+                          : ""}
             </h1>
           </div>
           <div className="flex items-center gap-2">

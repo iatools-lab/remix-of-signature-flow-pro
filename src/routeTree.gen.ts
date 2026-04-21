@@ -10,7 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as MySignatureRouteImport } from './routes/my-signature'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as IndexRouteImport } from './routes/index'
@@ -24,9 +26,19 @@ const SignupRoute = SignupRouteImport.update({
   path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MySignatureRoute = MySignatureRouteImport.update({
+  id: '/my-signature',
+  path: '/my-signature',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InboxRoute = InboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocumentsRoute = DocumentsRouteImport.update({
@@ -69,7 +81,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/contacts': typeof ContactsRoute
   '/documents': typeof DocumentsRoute
+  '/inbox': typeof InboxRoute
   '/login': typeof LoginRoute
+  '/my-signature': typeof MySignatureRoute
   '/signup': typeof SignupRoute
   '/binders/$status': typeof BindersStatusRoute
   '/binders/': typeof BindersIndexRoute
@@ -80,7 +94,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/contacts': typeof ContactsRoute
   '/documents': typeof DocumentsRoute
+  '/inbox': typeof InboxRoute
   '/login': typeof LoginRoute
+  '/my-signature': typeof MySignatureRoute
   '/signup': typeof SignupRoute
   '/binders/$status': typeof BindersStatusRoute
   '/binders': typeof BindersIndexRoute
@@ -92,7 +108,9 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/contacts': typeof ContactsRoute
   '/documents': typeof DocumentsRoute
+  '/inbox': typeof InboxRoute
   '/login': typeof LoginRoute
+  '/my-signature': typeof MySignatureRoute
   '/signup': typeof SignupRoute
   '/binders/$status': typeof BindersStatusRoute
   '/binders/': typeof BindersIndexRoute
@@ -105,7 +123,9 @@ export interface FileRouteTypes {
     | '/'
     | '/contacts'
     | '/documents'
+    | '/inbox'
     | '/login'
+    | '/my-signature'
     | '/signup'
     | '/binders/$status'
     | '/binders/'
@@ -116,7 +136,9 @@ export interface FileRouteTypes {
     | '/'
     | '/contacts'
     | '/documents'
+    | '/inbox'
     | '/login'
+    | '/my-signature'
     | '/signup'
     | '/binders/$status'
     | '/binders'
@@ -127,7 +149,9 @@ export interface FileRouteTypes {
     | '/'
     | '/contacts'
     | '/documents'
+    | '/inbox'
     | '/login'
+    | '/my-signature'
     | '/signup'
     | '/binders/$status'
     | '/binders/'
@@ -139,7 +163,9 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ContactsRoute: typeof ContactsRoute
   DocumentsRoute: typeof DocumentsRoute
+  InboxRoute: typeof InboxRoute
   LoginRoute: typeof LoginRoute
+  MySignatureRoute: typeof MySignatureRoute
   SignupRoute: typeof SignupRoute
   BindersStatusRoute: typeof BindersStatusRoute
   BindersIndexRoute: typeof BindersIndexRoute
@@ -156,11 +182,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/my-signature': {
+      id: '/my-signature'
+      path: '/my-signature'
+      fullPath: '/my-signature'
+      preLoaderRoute: typeof MySignatureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inbox': {
+      id: '/inbox'
+      path: '/inbox'
+      fullPath: '/inbox'
+      preLoaderRoute: typeof InboxRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/documents': {
@@ -219,7 +259,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ContactsRoute: ContactsRoute,
   DocumentsRoute: DocumentsRoute,
+  InboxRoute: InboxRoute,
   LoginRoute: LoginRoute,
+  MySignatureRoute: MySignatureRoute,
   SignupRoute: SignupRoute,
   BindersStatusRoute: BindersStatusRoute,
   BindersIndexRoute: BindersIndexRoute,
@@ -229,3 +271,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
