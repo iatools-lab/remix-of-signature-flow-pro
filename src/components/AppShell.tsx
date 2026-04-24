@@ -46,7 +46,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [session, setSession] = useState<Session | null>(null);
+  // Desktop: sidebar open by default. Mobile: closed by default (drawer).
   const [open, setOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const sync = () => setSession(getSession());
@@ -58,6 +60,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       window.removeEventListener("goodflag:auth", sync);
     };
   }, []);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      // On mobile we want the drawer closed by default; on desktop open.
+      setOpen(!mobile);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Close mobile drawer on navigation
+  useEffect(() => {
+    if (isMobile) setOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   useEffect(() => {
     if (session === null && typeof window !== "undefined") {
@@ -72,6 +92,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isHome = path === "/";
   const isBinders = path.startsWith("/binders");
   const isInbox = path.startsWith("/inbox");
+  const isSent = path.startsWith("/sent");
   const isDocs = path.startsWith("/documents");
   const isContacts = path.startsWith("/contacts");
   const isMySig = path.startsWith("/my-signature");
@@ -88,11 +109,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="relative flex min-h-screen bg-background">
+      {/* Mobile backdrop */}
+      {isMobile && open && (
+        <button
+          aria-label="Close menu"
+          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+        />
+      )}
+
       <aside
         className={cn(
-          "flex shrink-0 flex-col bg-sidebar text-sidebar-foreground transition-[width] duration-200",
-          open ? "w-64" : "w-0 overflow-hidden",
+          "flex shrink-0 flex-col bg-sidebar text-sidebar-foreground transition-transform duration-200",
+          // Desktop: take width in flow when open
+          !isMobile && (open ? "w-64" : "w-0 overflow-hidden"),
+          // Mobile: fixed drawer
+          isMobile && "fixed inset-y-0 left-0 z-40 w-64",
+          isMobile && (open ? "translate-x-0" : "-translate-x-full"),
         )}
       >
         <div className="flex h-16 items-center px-4">
@@ -102,6 +136,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <NavItem to="/" icon={Home} label={t("nav.home")} active={isHome} />
           <NavItem to="/binders/all" icon={FilePlus2} label={t("nav.binders")} active={isBinders} />
           <NavItem to="/inbox" icon={Inbox} label={t("nav.inbox")} active={isInbox} />
+          <NavItem to="/sent" icon={Send} label={t("nav.sent")} active={isSent} />
           <NavItem to="/documents" icon={FileText} label={t("nav.documents")} active={isDocs} />
           <NavItem to="/contacts" icon={Users} label={t("nav.contacts")} active={isContacts} />
           <NavItem to="/my-signature" icon={PenLine} label={t("nav.mySignature")} active={isMySig} />
@@ -112,29 +147,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 items-center justify-between border-b bg-card px-4">
-          <div className="flex items-center gap-3">
+        <header className="flex h-16 items-center justify-between gap-2 border-b bg-card px-3 sm:px-4">
+          <div className="flex min-w-0 items-center gap-2">
             <Button variant="ghost" size="icon" onClick={() => setOpen((v) => !v)} aria-label="Toggle sidebar">
               <Menu className="h-5 w-5" />
             </Button>
-            <h1 className="text-lg font-semibold text-foreground">
+            <h1 className="truncate text-base font-semibold text-foreground sm:text-lg">
               {isHome
                 ? t("home.greeting", { name: session?.name ?? "" })
                 : isBinders
                   ? t("binders.title")
                   : isInbox
                     ? t("inbox.title")
-                    : isDocs
-                      ? t("documents.title")
-                      : isContacts
-                        ? t("contacts.title")
-                        : isMySig
-                          ? t("mySignature.title")
-                          : ""}
+                    : isSent
+                      ? t("sent.title")
+                      : isDocs
+                        ? t("documents.title")
+                        : isContacts
+                          ? t("contacts.title")
+                          : isMySig
+                            ? t("mySignature.title")
+                            : ""}
             </h1>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={toggleLang} className="gap-1.5">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Button variant="ghost" size="sm" onClick={toggleLang} className="gap-1.5 px-2">
               <Globe className="h-4 w-4" />
               <span className="text-xs font-semibold uppercase">{i18n.language}</span>
             </Button>
@@ -165,7 +202,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </DropdownMenu>
           </div>
         </header>
-        <main className="flex-1 overflow-auto p-6">{children}</main>
+        <main className="flex-1 overflow-auto p-4 sm:p-6">{children}</main>
       </div>
     </div>
   );
