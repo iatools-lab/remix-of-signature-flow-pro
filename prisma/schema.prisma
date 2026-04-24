@@ -225,6 +225,16 @@ model User {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  // Préférences de notification (par utilisateur — peuvent être surchargées
+  // au niveau du parapheur via Binder.notifyOn*)
+  notifyOnSent     Boolean  @default(true)  // un parapheur que j'ai envoyé est ouvert
+  notifyOnSigned   Boolean  @default(true)  // un signataire a signé
+  notifyOnDeclined Boolean  @default(true)  // un signataire refuse de signer
+  notifyReminders  Boolean  @default(true)  // recevoir mes propres rappels
+
+  // Onboarding
+  onboardingDismissedAt DateTime?
+
   // Relations
   sessions          Session[]
   passwordResets    PasswordResetToken[]
@@ -236,6 +246,7 @@ model User {
   ownedTemplates    BinderTemplate[]      @relation("TemplateOwner")
   auditEvents       AuditEvent[]          @relation("AuditActor")
   savedSignature    SavedSignature?
+  contacts          Contact[]             @relation("ContactOwner")
 
   @@index([role, isActive])
   @@index([deletedAt])
