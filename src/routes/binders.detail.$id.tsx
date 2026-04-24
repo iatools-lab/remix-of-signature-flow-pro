@@ -789,20 +789,6 @@ function InlineEditor({
   );
 }
 
-function OpButton({
-  icon: Icon,
-  label,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-}) {
-  return (
-    <button className="flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-medium text-foreground transition hover:bg-accent">
-      <Icon className="h-4 w-4" /> {label}
-    </button>
-  );
-}
-
 const AUDIT_ICONS: Record<AuditEventKind, React.ComponentType<{ className?: string }>> = {
   "binder.created": Plus,
   "binder.started": Play,
