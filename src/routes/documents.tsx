@@ -56,7 +56,8 @@ function DocumentsPage() {
         </div>
 
         <div className="overflow-hidden rounded-lg border bg-card">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[480px] text-sm">
             <thead className="border-b bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">{t("documents.cols.name")}</th>
