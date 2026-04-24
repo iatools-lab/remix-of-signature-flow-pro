@@ -503,6 +503,38 @@ export function NewBinderDialog({
                     </div>
                   </div>
 
+                  {/* Kind selector: signature vs initial (paraphe) */}
+                  <div className="space-y-1.5">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {t("newBinder.zoneKind")}
+                    </div>
+                    <div className="inline-flex rounded-md border bg-card p-0.5">
+                      {(["signature", "initial"] as const).map((k) => {
+                        const active = activeKind === k;
+                        return (
+                          <button
+                            key={k}
+                            type="button"
+                            onClick={() => setActiveKind(k)}
+                            className={cn(
+                              "rounded px-3 py-1.5 text-xs font-medium transition",
+                              active
+                                ? "bg-action text-action-foreground"
+                                : "text-foreground hover:bg-accent",
+                            )}
+                          >
+                            {t(`newBinder.kind.${k}` as never)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      {activeKind === "initial"
+                        ? t("newBinder.kindHelpInitial")
+                        : t("newBinder.kindHelpSignature")}
+                    </p>
+                  </div>
+
                   {/* Doc tabs */}
                   <div className="flex flex-wrap gap-2 border-b pb-2">
                     {documents.map((d) => (
