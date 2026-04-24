@@ -197,7 +197,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <div className="text-muted-foreground">{session?.email}</div>
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
                   <Settings className="mr-2 h-4 w-4" />
                   {t("common.settings")}
                 </DropdownMenuItem>
