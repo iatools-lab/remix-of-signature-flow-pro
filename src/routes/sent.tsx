@@ -61,10 +61,10 @@ function SentPage() {
   };
 
   const FILTERS: { key: Filter; label: string }[] = [
-    { key: "all", label: t("sent.filterAll") },
-    { key: "pending", label: t("sent.filterPending") },
-    { key: "finished", label: t("sent.filterFinished") },
-    { key: "stopped", label: t("sent.filterStopped") },
+    { key: "all", label: mounted ? t("sent.filterAll") : "" },
+    { key: "pending", label: mounted ? t("sent.filterPending") : "" },
+    { key: "finished", label: mounted ? t("sent.filterFinished") : "" },
+    { key: "stopped", label: mounted ? t("sent.filterStopped") : "" },
   ];
 
   return (
