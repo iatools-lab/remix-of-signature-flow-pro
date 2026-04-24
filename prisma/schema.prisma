@@ -124,6 +124,9 @@ enum AuditAction {
   USER_UPDATED
   USER_DEACTIVATED
   USER_ROLE_CHANGED
+  USER_PROFILE_UPDATED
+  USER_AVATAR_UPDATED
+  USER_NOTIFICATIONS_UPDATED
 
   // Groupes
   GROUP_CREATED
@@ -156,6 +159,8 @@ enum AuditAction {
   SIGNER_REMOVED
   SIGNER_INVITED
   SIGNER_REMINDED
+  SIGNER_VIEWED
+  SIGNER_DECLINED
 
   // Templates
   TEMPLATE_CREATED
@@ -169,9 +174,15 @@ enum AuditAction {
   SAVED_SIGNATURE_DELETED
   SAVED_SIGNATURE_USED
 
-  // Archivage
+  // Preuves & archivage
+  EVIDENCE_DOWNLOADED
   ARCHIVE_EXPORTED
   ARCHIVE_RESTORED
+
+  // Contacts personnels
+  CONTACT_CREATED
+  CONTACT_UPDATED
+  CONTACT_DELETED
 }
 
 // =====================================================================
@@ -214,6 +225,16 @@ model User {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  // Préférences de notification (par utilisateur — peuvent être surchargées
+  // au niveau du parapheur via Binder.notifyOn*)
+  notifyOnSent     Boolean  @default(true)  // un parapheur que j'ai envoyé est ouvert
+  notifyOnSigned   Boolean  @default(true)  // un signataire a signé
+  notifyOnDeclined Boolean  @default(true)  // un signataire refuse de signer
+  notifyReminders  Boolean  @default(true)  // recevoir mes propres rappels
+
+  // Onboarding
+  onboardingDismissedAt DateTime?
+
   // Relations
   sessions          Session[]
   passwordResets    PasswordResetToken[]
@@ -225,6 +246,7 @@ model User {
   ownedTemplates    BinderTemplate[]      @relation("TemplateOwner")
   auditEvents       AuditEvent[]          @relation("AuditActor")
   savedSignature    SavedSignature?
+  contacts          Contact[]             @relation("ContactOwner")
 
   @@index([role, isActive])
   @@index([deletedAt])
@@ -492,17 +514,24 @@ model BinderSigner {
   order      Int           @default(1)
   status     SignerStatus  @default(PENDING)
 
+  /// Première ouverture de la page de signature par le destinataire.
+  viewedAt   DateTime?
+
   signedAt   DateTime?
   signatureMethod SignatureMethod?
   /// URL ou clé du blob de signature (image PNG, ou texte typé)
   signatureData   String?
+
+  /// Refus motivé : date + raison fournie par le signataire.
+  declinedAt     DateTime?
+  declinedReason String?
 
   /// Token d'invitation (hash). Le token brut n'est envoyé qu'une fois.
   inviteTokenHash String?  @unique
   inviteSentAt    DateTime?
   lastReminderAt  DateTime?
 
-  /// Métadonnées de signature pour la preuve
+  /// Métadonnées (IP / UA) capturées à la vue, à la signature ou au refus.
   signedFromIp    String?
   signedUserAgent String?
 
@@ -766,4 +795,30 @@ model AuditEvent {
   @@index([actorId, createdAt])
   @@index([binderId, createdAt])
   @@index([action, createdAt])
+}
+
+// =====================================================================
+// CARNET DE CONTACTS PERSONNEL
+// =====================================================================
+
+/// Contact personnel d'un utilisateur — utilisé pour pré-remplir
+/// rapidement les signataires lors de la création d'un parapheur.
+/// Distinct de User : un contact peut être externe à l'organisation.
+model Contact {
+  id        String   @id @default(cuid())
+
+  ownerId   String
+  owner     User     @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  name      String
+  email     String
+  company   String?
+  phone     String?
+  notes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([ownerId, email])
+  @@index([ownerId])
 }
