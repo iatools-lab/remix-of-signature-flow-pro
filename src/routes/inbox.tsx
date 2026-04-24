@@ -8,7 +8,7 @@ import { useBinders } from "@/lib/store";
 import { getSession } from "@/lib/auth";
 import { getMySignature, type SavedSignature } from "@/lib/mySignature";
 import { formatDateTime } from "@/lib/format";
-import type { Binder, BinderSigner } from "@/lib/mockData";
+import { getInitialsFromName, type Binder, type BinderSigner } from "@/lib/mockData";
 
 export const Route = createFileRoute("/inbox")({
   head: () => ({
@@ -64,10 +64,25 @@ function InboxPage() {
 
   const signOne = (item: InboxItem) => {
     if (!saved) return;
-    // Saved signature method maps directly to BinderSigner["signatureMethod"]
+    const initials = getInitialsFromName(item.signer.name);
+    // Build per-field overrides so that "initial" zones get the signer's
+    // initials text, while regular signature zones use the saved signature.
+    const fieldOverrides: Record<
+      string,
+      { method: "drawn" | "typed" | "image" | "otp"; signatureData: string }
+    > = {};
+    for (const f of item.binder.signatureFields ?? []) {
+      if (f.signerId !== item.signer.id) continue;
+      if (f.kind === "initial") {
+        fieldOverrides[f.id] = { method: "typed", signatureData: initials };
+      } else {
+        fieldOverrides[f.id] = { method: saved.method, signatureData: saved.data };
+      }
+    }
     signAs(item.binder.id, item.signer.id, {
       method: saved.method,
       signatureData: saved.data,
+      fieldOverrides,
     });
   };
 
