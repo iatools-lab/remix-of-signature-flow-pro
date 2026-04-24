@@ -377,6 +377,11 @@ const resources = {
         zonesCount_one: "{{count}} zone",
         clickToPlace: "Click to place a signature",
         removeZone: "Remove this zone",
+        zoneKind: "Zone type",
+        kind: { signature: "Signature", initial: "Initials (paraphe)" },
+        kindHelpSignature: "Full signature zone, to draw or type.",
+        kindHelpInitial:
+          "Automatic initials zone: the signer's initials are applied in one click.",
       },
       detail: {
         title: "Binder detail",
@@ -490,6 +495,8 @@ const resources = {
         alreadySigned: "You have already signed this binder.",
         progress: "{{done}} / {{total}} signature(s) applied",
         zoneOf: "Zone {{n}} — page {{p}} of {{doc}}",
+        initialZoneLabel: "Click to initial",
+        initialOf: "Initials {{n}} — page {{p}} of {{doc}}",
       },
     },
   },
