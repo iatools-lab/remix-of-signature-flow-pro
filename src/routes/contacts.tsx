@@ -48,53 +48,91 @@ function ContactsPage() {
           </button>
         </div>
 
-        <div className="overflow-hidden rounded-lg border bg-card">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3 text-left font-semibold">{t("contacts.cols.name")}</th>
-                <th className="px-4 py-3 text-left font-semibold">{t("contacts.cols.email")}</th>
-                <th className="px-4 py-3 text-left font-semibold">{t("contacts.cols.phone")}</th>
-                <th className="px-4 py-3 text-left font-semibold">{t("contacts.cols.company")}</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 && (
+        {/* Mobile: cards */}
+        <div className="space-y-2 sm:hidden">
+          {filtered.length === 0 && (
+            <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
+              {t("contacts.empty")}
+            </div>
+          )}
+          {filtered.map((c) => (
+            <div
+              key={c.id}
+              className="flex items-center gap-3 rounded-lg border bg-card p-3 shadow-sm"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                {(c.firstName[0] + c.lastName[0]).toUpperCase()}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium text-foreground">
+                  {c.firstName} {c.lastName}
+                </div>
+                <div className="truncate text-xs text-muted-foreground">{c.email}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  {c.company ?? "—"} · {c.phone ?? "—"}
+                </div>
+              </div>
+              <button
+                onClick={() => remove(c.id)}
+                className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                aria-label="Delete"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop: table */}
+        <div className="hidden overflow-hidden rounded-lg border bg-card sm:block">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center text-muted-foreground">
-                    {t("contacts.empty")}
-                  </td>
+                  <th className="px-4 py-3 text-left font-semibold">{t("contacts.cols.name")}</th>
+                  <th className="px-4 py-3 text-left font-semibold">{t("contacts.cols.email")}</th>
+                  <th className="px-4 py-3 text-left font-semibold">{t("contacts.cols.phone")}</th>
+                  <th className="px-4 py-3 text-left font-semibold">{t("contacts.cols.company")}</th>
+                  <th />
                 </tr>
-              )}
-              {filtered.map((c) => (
-                <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
-                        {(c.firstName[0] + c.lastName[0]).toUpperCase()}
-                      </span>
-                      <span className="font-medium text-foreground">
-                        {c.firstName} {c.lastName}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{c.email}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{c.phone ?? "—"}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{c.company ?? "—"}</td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => remove(c.id)}
-                      className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      aria-label="Delete"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-12 text-center text-muted-foreground">
+                      {t("contacts.empty")}
+                    </td>
+                  </tr>
+                )}
+                {filtered.map((c) => (
+                  <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
+                          {(c.firstName[0] + c.lastName[0]).toUpperCase()}
+                        </span>
+                        <span className="font-medium text-foreground">
+                          {c.firstName} {c.lastName}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{c.email}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{c.phone ?? "—"}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{c.company ?? "—"}</td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => remove(c.id)}
+                        className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        aria-label="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
       <NewContactDialog open={open} onOpenChange={setOpen} />
