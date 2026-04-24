@@ -4,7 +4,6 @@ import {
   initialContacts,
   mockIp,
   type AuditEvent,
-  type AuditEventKind,
   type Binder,
   type BinderDocument,
   type BinderAttachment,
