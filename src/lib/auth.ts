@@ -1,10 +1,27 @@
 // Mock auth — demo only, NOT secure. Stores a fake session in localStorage.
 const KEY = "goodflag.session";
 
+export type NotificationPrefs = {
+  emailOnSent: boolean;
+  emailOnSigned: boolean;
+  emailOnDeclined: boolean;
+  reminders: boolean;
+};
+
 export type Session = {
   email: string;
   name: string;
   initials: string;
+  phone?: string;
+  photo?: string; // dataURL
+  notifications?: NotificationPrefs;
+};
+
+export const DEFAULT_NOTIFS: NotificationPrefs = {
+  emailOnSent: true,
+  emailOnSigned: true,
+  emailOnDeclined: true,
+  reminders: false,
 };
 
 function deriveName(email: string) {
@@ -18,7 +35,7 @@ function deriveName(email: string) {
   return { name: name || "User", initials };
 }
 
-function initialsFromName(fullName: string) {
+export function initialsFromName(fullName: string) {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "US";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
@@ -38,7 +55,12 @@ export function getSession(): Session | null {
 
 export function login(email: string): Session {
   const { name, initials } = deriveName(email);
-  const session: Session = { email, name, initials };
+  const session: Session = {
+    email,
+    name,
+    initials,
+    notifications: DEFAULT_NOTIFS,
+  };
   localStorage.setItem(KEY, JSON.stringify(session));
   window.dispatchEvent(new Event("goodflag:auth"));
   return session;
@@ -46,10 +68,29 @@ export function login(email: string): Session {
 
 export function signup(name: string, email: string): Session {
   const initials = initialsFromName(name);
-  const session: Session = { email, name: name.trim(), initials };
+  const session: Session = {
+    email,
+    name: name.trim(),
+    initials,
+    notifications: DEFAULT_NOTIFS,
+  };
   localStorage.setItem(KEY, JSON.stringify(session));
   window.dispatchEvent(new Event("goodflag:auth"));
   return session;
+}
+
+export function updateSession(patch: Partial<Session>): Session | null {
+  const current = getSession();
+  if (!current) return null;
+  const next: Session = {
+    ...current,
+    ...patch,
+    notifications: { ...DEFAULT_NOTIFS, ...current.notifications, ...(patch.notifications ?? {}) },
+  };
+  if (patch.name) next.initials = initialsFromName(patch.name);
+  localStorage.setItem(KEY, JSON.stringify(next));
+  window.dispatchEvent(new Event("goodflag:auth"));
+  return next;
 }
 
 export function logout() {

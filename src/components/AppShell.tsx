@@ -49,6 +49,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Desktop: sidebar open by default. Mobile: closed by default (drawer).
   const [open, setOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  // Avoid SSR/CSR text mismatch for i18n-translated header title.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     const sync = () => setSession(getSession());
@@ -153,21 +156,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Menu className="h-5 w-5" />
             </Button>
             <h1 className="truncate text-base font-semibold text-foreground sm:text-lg">
-              {isHome
-                ? t("home.greeting", { name: session?.name ?? "" })
-                : isBinders
-                  ? t("binders.title")
-                  : isInbox
-                    ? t("inbox.title")
-                    : isSent
-                      ? t("sent.title")
-                      : isDocs
-                        ? t("documents.title")
-                        : isContacts
-                          ? t("contacts.title")
-                          : isMySig
-                            ? t("mySignature.title")
-                            : ""}
+              {mounted
+                ? isHome
+                  ? t("home.greeting", { name: session?.name ?? "" })
+                  : isBinders
+                    ? t("binders.title")
+                    : isInbox
+                      ? t("inbox.title")
+                      : isSent
+                        ? t("sent.title")
+                        : isDocs
+                          ? t("documents.title")
+                          : isContacts
+                            ? t("contacts.title")
+                            : isMySig
+                              ? t("mySignature.title")
+                              : path.startsWith("/settings")
+                                ? t("settings.title")
+                                : ""
+                : ""}
             </h1>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
@@ -178,10 +185,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-sm font-semibold text-brand-foreground hover:opacity-90"
+                  className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-brand text-sm font-semibold text-brand-foreground hover:opacity-90"
                   aria-label="User menu"
                 >
-                  {session?.initials ?? "··"}
+                  {session?.photo ? (
+                    <img src={session.photo} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    (session?.initials ?? "··")
+                  )}
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -190,7 +201,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <div className="text-muted-foreground">{session?.email}</div>
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
                   <Settings className="mr-2 h-4 w-4" />
                   {t("common.settings")}
                 </DropdownMenuItem>

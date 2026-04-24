@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SentRouteImport } from './routes/sent'
 import { Route as MySignatureRouteImport } from './routes/my-signature'
 import { Route as LoginRouteImport } from './routes/login'
@@ -25,6 +26,11 @@ import { Route as BindersDetailIdRouteImport } from './routes/binders.detail.$id
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SentRoute = SentRouteImport.update({
@@ -91,6 +97,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/my-signature': typeof MySignatureRoute
   '/sent': typeof SentRoute
+  '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/binders/$status': typeof BindersStatusRoute
   '/binders/': typeof BindersIndexRoute
@@ -105,6 +112,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/my-signature': typeof MySignatureRoute
   '/sent': typeof SentRoute
+  '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/binders/$status': typeof BindersStatusRoute
   '/binders': typeof BindersIndexRoute
@@ -120,6 +128,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/my-signature': typeof MySignatureRoute
   '/sent': typeof SentRoute
+  '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/binders/$status': typeof BindersStatusRoute
   '/binders/': typeof BindersIndexRoute
@@ -136,6 +145,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/my-signature'
     | '/sent'
+    | '/settings'
     | '/signup'
     | '/binders/$status'
     | '/binders/'
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/my-signature'
     | '/sent'
+    | '/settings'
     | '/signup'
     | '/binders/$status'
     | '/binders'
@@ -164,6 +175,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/my-signature'
     | '/sent'
+    | '/settings'
     | '/signup'
     | '/binders/$status'
     | '/binders/'
@@ -179,6 +191,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MySignatureRoute: typeof MySignatureRoute
   SentRoute: typeof SentRoute
+  SettingsRoute: typeof SettingsRoute
   SignupRoute: typeof SignupRoute
   BindersStatusRoute: typeof BindersStatusRoute
   BindersIndexRoute: typeof BindersIndexRoute
@@ -193,6 +206,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sent': {
@@ -283,6 +303,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MySignatureRoute: MySignatureRoute,
   SentRoute: SentRoute,
+  SettingsRoute: SettingsRoute,
   SignupRoute: SignupRoute,
   BindersStatusRoute: BindersStatusRoute,
   BindersIndexRoute: BindersIndexRoute,

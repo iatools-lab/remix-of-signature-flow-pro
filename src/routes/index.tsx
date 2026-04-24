@@ -1,10 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FilePlus2, UserPlus, Settings } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { NewBinderDialog } from "@/components/NewBinderDialog";
 import { NewContactDialog } from "@/components/NewContactDialog";
+import { OnboardingChecklist } from "@/components/OnboardingChecklist";
 import { useBinders } from "@/lib/store";
 import type { BinderStatus } from "@/lib/mockData";
 
@@ -22,6 +23,7 @@ const STATUSES: BinderStatus[] = ["draft", "started", "finished", "stopped", "ar
 
 function HomePage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { binders } = useBinders();
   const [newBinderOpen, setNewBinderOpen] = useState(false);
   const [newContactOpen, setNewContactOpen] = useState(false);
@@ -37,6 +39,11 @@ function HomePage() {
   return (
     <AppShell>
       <div className="space-y-8">
+        <OnboardingChecklist
+          onCreateBinder={() => setNewBinderOpen(true)}
+          onCreateContact={() => setNewContactOpen(true)}
+        />
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap gap-3">
             <button
@@ -55,6 +62,7 @@ function HomePage() {
             </button>
           </div>
           <button
+            onClick={() => navigate({ to: "/settings" })}
             className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
             aria-label="Settings"
           >
