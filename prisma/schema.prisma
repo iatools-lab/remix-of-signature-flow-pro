@@ -647,6 +647,9 @@ model BinderTemplateField {
   width       Float
   height      Float
 
+  /// Type de zone : signature complète ou paraphe (initiales).
+  kind        SignatureFieldKind @default(SIGNATURE)
+
   @@index([templateId])
   @@index([documentId, page])
 }
