@@ -670,11 +670,43 @@ function BinderDetail() {
             </Section>
           )}
 
+          {tab === "history" && (
+            <Section title={t("history.title")}>
+              <AuditTimeline events={binder.auditEvents ?? []} lang={i18n.language} t={t} />
+            </Section>
+          )}
+
           {(tab === "operations" || tab === "general") && (
             <Section title={t("detail.tabs.operations")}>
-              <div className="flex flex-wrap gap-3 py-2">
-                <OpButton icon={Download} label="Télécharger" />
-                <OpButton icon={Pencil} label="Renommer" />
+              <div className="space-y-4 py-2">
+                <div>
+                  <h4 className="mb-2 text-sm font-semibold text-foreground">
+                    {t("downloads.title")}
+                  </h4>
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    {binder.status === "finished"
+                      ? t("downloads.helpFinished")
+                      : t("downloads.helpPending")}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      onClick={onDownloadSigned}
+                      disabled={binder.status !== "finished"}
+                      className="gap-1.5"
+                    >
+                      <FileSignature className="h-4 w-4" />
+                      {t("downloads.signedPdf")}
+                    </Button>
+                    <Button
+                      onClick={onDownloadCertificate}
+                      variant="outline"
+                      className="gap-1.5"
+                    >
+                      <ShieldCheck className="h-4 w-4" />
+                      {t("downloads.certificate")}
+                    </Button>
+                  </div>
+                </div>
               </div>
             </Section>
           )}
