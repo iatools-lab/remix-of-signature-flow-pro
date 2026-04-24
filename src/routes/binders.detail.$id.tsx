@@ -21,6 +21,13 @@ import {
   Lock,
   Play,
   Check,
+  History,
+  XCircle,
+  BellRing,
+  Mail,
+  Eye,
+  ShieldCheck,
+  FileSignature,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -30,8 +37,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format";
+import { generateSignedPdf, generateCertificatePdf } from "@/lib/evidence";
+import { getSession } from "@/lib/auth";
 import {
   SIGNER_COLORS,
+  type AuditEvent,
+  type AuditEventKind,
   type BinderDocument,
   type BinderAttachment,
   type BinderSigner,
@@ -42,12 +53,12 @@ export const Route = createFileRoute("/binders/detail/$id")({
   component: BinderDetail,
 });
 
-type Tab = "general" | "steps" | "documents" | "notifications" | "operations";
+type Tab = "general" | "steps" | "documents" | "history" | "notifications" | "operations";
 
 function BinderDetail() {
   const { id } = Route.useParams();
   const { t, i18n } = useTranslation();
-  const { binders, update } = useBinders();
+  const { binders, update, startBinder: startBinderAction, recordDownload } = useBinders();
   const navigate = useNavigate();
   const binder = binders.find((b) => b.id === id);
   const [tab, setTab] = useState<Tab>("general");
