@@ -101,6 +101,10 @@ export function useBinders() {
   /**
    * Record a signature for a given signer: marks the signer as signed,
    * fills in all their signature fields, recomputes progress and status.
+   *
+   * If `fieldOverrides` is provided, each field id present uses its own
+   * (method, signatureData) pair instead of the canonical one. This is used
+   * to mix full signatures and "initial" (paraphe) zones in the same pass.
    */
   const signAs = useCallback(
     (
@@ -109,6 +113,10 @@ export function useBinders() {
       payload: {
         method: BinderSigner["signatureMethod"];
         signatureData: string;
+        fieldOverrides?: Record<
+          string,
+          { method: BinderSigner["signatureMethod"]; signatureData: string }
+        >;
       },
     ) => {
       const list = load<Binder[]>(BINDER_KEY, initialBinders);
@@ -126,11 +134,15 @@ export function useBinders() {
               }
             : s,
         );
-        const fields = (b.signatureFields ?? []).map((f) =>
-          f.signerId === signerId
-            ? { ...f, signedAt: now, signatureData: payload.signatureData }
-            : f,
-        );
+        const fields = (b.signatureFields ?? []).map((f) => {
+          if (f.signerId !== signerId) return f;
+          const override = payload.fieldOverrides?.[f.id];
+          return {
+            ...f,
+            signedAt: now,
+            signatureData: override?.signatureData ?? payload.signatureData,
+          };
+        });
         const total = signers.length || 1;
         const signedCount = signers.filter((s) => s.status === "signed").length;
         const progress = Math.round((signedCount / total) * 100);
