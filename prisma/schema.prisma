@@ -94,6 +94,13 @@ enum NotificationStatus {
 }
 
 /// Type d'événement de notification (utile pour templates et filtrage).
+enum SignatureFieldKind {
+  /// Zone de signature complète (manuscrite, image, OTP…).
+  SIGNATURE
+  /// Zone de paraphe : initiales du signataire apposées en un clic.
+  INITIAL
+}
+
 enum NotificationKind {
   BINDER_STARTED
   SIGNER_INVITED
@@ -529,6 +536,9 @@ model SignatureField {
   y           Float    // 0..1
   width       Float    // 0..1
   height      Float    // 0..1
+
+  /// Type de zone : signature complète ou paraphe (initiales).
+  kind        SignatureFieldKind @default(SIGNATURE)
 
   /// Une fois signée, on fige les données ici (redondance volontaire avec
   /// BinderSigner pour faciliter la génération du PDF final).
