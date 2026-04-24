@@ -185,10 +185,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-sm font-semibold text-brand-foreground hover:opacity-90"
+                  className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-brand text-sm font-semibold text-brand-foreground hover:opacity-90"
                   aria-label="User menu"
                 >
-                  {session?.initials ?? "··"}
+                  {session?.photo ? (
+                    <img src={session.photo} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    (session?.initials ?? "··")
+                  )}
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
