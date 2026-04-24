@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { Home, FileText, FilePlus2, Users, LogOut, Settings, Menu, Globe, Inbox, PenLine } from "lucide-react";
+import { Home, FileText, FilePlus2, Users, LogOut, Settings, Menu, Globe, Inbox, PenLine, Send } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { Logo } from "./Logo";
