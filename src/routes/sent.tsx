@@ -33,6 +33,8 @@ function SentPage() {
   const email = (session?.email ?? "").toLowerCase();
   const [filter, setFilter] = useState<Filter>("all");
   const [remindedKey, setRemindedKey] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const items = useMemo<Binder[]>(() => {
     if (!email) return [];
