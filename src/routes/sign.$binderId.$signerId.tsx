@@ -9,15 +9,19 @@ import {
   Paperclip,
   Pen,
   ShieldCheck,
+  XCircle,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { DocumentPagePreview } from "@/components/DocumentPagePreview";
 import { SignaturePad, type SignatureResult } from "@/components/SignaturePad";
 import { useBinders } from "@/lib/store";
@@ -32,10 +36,34 @@ export const Route = createFileRoute("/sign/$binderId/$signerId")({
 function SignPage() {
   const { binderId, signerId } = Route.useParams();
   const { t, i18n } = useTranslation();
-  const { binders, signAs } = useBinders();
+  const { binders, signAs, markSignerViewed, declineAs } = useBinders();
   const navigate = useNavigate();
   const binder = binders.find((b) => b.id === binderId);
   const signer = binder?.signers?.find((s) => s.id === signerId);
+  const [declineOpen, setDeclineOpen] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
+  const [declineErr, setDeclineErr] = useState<string | null>(null);
+  const [declined, setDeclined] = useState(false);
+
+  // Log "viewed" once when the signer opens the page (only if pending).
+  useEffect(() => {
+    if (binder && signer && signer.status !== "signed" && !signer.viewedAt) {
+      markSignerViewed(binder.id, signer.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [binder?.id, signer?.id]);
+
+  const submitDecline = () => {
+    if (!binder || !signer) return;
+    const reason = declineReason.trim();
+    if (reason.length < 3) {
+      setDeclineErr(t("decline.error"));
+      return;
+    }
+    declineAs(binder.id, signer.id, reason);
+    setDeclined(true);
+    setDeclineOpen(false);
+  };
 
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [activePage, setActivePage] = useState(1);
