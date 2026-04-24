@@ -87,6 +87,7 @@ function BinderDetail() {
     { key: "general", label: t("detail.tabs.general") },
     { key: "steps", label: t("detail.tabs.steps") },
     { key: "documents", label: t("detail.tabs.documents") },
+    { key: "history", label: t("history.title") },
     { key: "notifications", label: t("detail.tabs.notifications") },
     { key: "operations", label: t("detail.tabs.operations") },
   ];
