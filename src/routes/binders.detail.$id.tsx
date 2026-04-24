@@ -201,7 +201,20 @@ function BinderDetail() {
 
   const startBinder = () => {
     if (!editable) return;
-    update(binder.id, { status: "started", startedAt: new Date().toISOString() });
+    // Use the store action so audit events (started + invited per signer)
+    // are logged consistently.
+    startBinderAction(binder.id);
+  };
+
+  const onDownloadSigned = () => {
+    const session = getSession();
+    generateSignedPdf(binder, i18n.language);
+    recordDownload(binder.id, { name: session?.name, email: session?.email }, "signed_pdf");
+  };
+  const onDownloadCertificate = () => {
+    const session = getSession();
+    generateCertificatePdf(binder, i18n.language);
+    recordDownload(binder.id, { name: session?.name, email: session?.email }, "certificate");
   };
 
   return (
