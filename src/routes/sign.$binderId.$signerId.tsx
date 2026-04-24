@@ -21,7 +21,7 @@ import {
 import { DocumentPagePreview } from "@/components/DocumentPagePreview";
 import { SignaturePad, type SignatureResult } from "@/components/SignaturePad";
 import { useBinders } from "@/lib/store";
-import type { SignatureField } from "@/lib/mockData";
+import { getInitialsFromName, type SignatureField } from "@/lib/mockData";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/sign/$binderId/$signerId")({
