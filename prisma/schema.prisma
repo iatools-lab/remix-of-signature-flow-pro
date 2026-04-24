@@ -796,3 +796,29 @@ model AuditEvent {
   @@index([binderId, createdAt])
   @@index([action, createdAt])
 }
+
+// =====================================================================
+// CARNET DE CONTACTS PERSONNEL
+// =====================================================================
+
+/// Contact personnel d'un utilisateur — utilisé pour pré-remplir
+/// rapidement les signataires lors de la création d'un parapheur.
+/// Distinct de User : un contact peut être externe à l'organisation.
+model Contact {
+  id        String   @id @default(cuid())
+
+  ownerId   String
+  owner     User     @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  name      String
+  email     String
+  company   String?
+  phone     String?
+  notes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([ownerId, email])
+  @@index([ownerId])
+}
