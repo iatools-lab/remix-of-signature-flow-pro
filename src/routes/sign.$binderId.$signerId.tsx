@@ -120,10 +120,28 @@ function SignPage() {
   );
 
   const finalize = () => {
-    // Use the most recent applied signature as the canonical one for this signer
-    const last = Object.values(pendingSignatures).pop();
-    if (!last) return;
-    signAs(binder.id, signer.id, { method: last.method, signatureData: last.data });
+    // Use the most recent applied "signature" entry as canonical, but pass
+    // per-field overrides so that "initial" zones keep their initials text.
+    const entries = Object.entries(pendingSignatures);
+    if (entries.length === 0) return;
+    // Prefer a non-initial entry as canonical (full signature), else fallback.
+    const sigEntries = entries.filter(([fid]) => {
+      const fld = myFields.find((f) => f.id === fid);
+      return fld?.kind !== "initial";
+    });
+    const canonical = (sigEntries[sigEntries.length - 1] ?? entries[entries.length - 1])[1];
+    const fieldOverrides: Record<
+      string,
+      { method: SignatureField["signatureData"] extends string ? SignatureResult["method"] : never; signatureData: string }
+    > = {};
+    for (const [fid, res] of entries) {
+      fieldOverrides[fid] = { method: res.method, signatureData: res.data };
+    }
+    signAs(binder.id, signer.id, {
+      method: canonical.method,
+      signatureData: canonical.data,
+      fieldOverrides,
+    });
     setDone(true);
   };
 
