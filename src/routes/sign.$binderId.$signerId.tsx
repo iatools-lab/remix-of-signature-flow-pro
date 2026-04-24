@@ -453,6 +453,18 @@ function SignPage() {
               <ShieldCheck className="mr-2 h-4 w-4" /> {t("sign.finalize")}
             </Button>
 
+            <Button
+              onClick={() => {
+                setDeclineErr(null);
+                setDeclineReason("");
+                setDeclineOpen(true);
+              }}
+              variant="outline"
+              className="mt-2 w-full border-destructive/30 text-destructive hover:bg-destructive/5 hover:text-destructive"
+            >
+              <XCircle className="mr-2 h-4 w-4" /> {t("decline.button")}
+            </Button>
+
             {totalToSign === 0 && (
               <p className="mt-3 text-center text-xs text-muted-foreground">
                 {t("sign.allSigned")}
