@@ -25,6 +25,45 @@ export type BinderSigner = {
   signedAt?: string;
   signatureMethod?: "drawn" | "typed" | "image" | "otp";
   signatureData?: string; // dataURL or typed name
+  /** Dernière fois que le signataire a ouvert le lien de signature. */
+  viewedAt?: string;
+  /** Date de refus, si le signataire a refusé de signer. */
+  declinedAt?: string;
+  /** Motif du refus saisi par le signataire. */
+  declinedReason?: string;
+  /** IP simulée capturée lors de la signature/refus. */
+  ip?: string;
+};
+
+/** Catégories d'événements applicatifs visibles dans la timeline. */
+export type AuditEventKind =
+  | "binder.created"
+  | "binder.started"
+  | "binder.completed"
+  | "binder.stopped"
+  | "binder.archived"
+  | "signer.invited"
+  | "signer.viewed"
+  | "signer.signed"
+  | "signer.declined"
+  | "signer.reminded"
+  | "evidence.downloaded";
+
+export type AuditEvent = {
+  id: string;
+  kind: AuditEventKind;
+  /** ISO timestamp */
+  at: string;
+  /** Acteur lisible (nom + email). */
+  actorName?: string;
+  actorEmail?: string;
+  /** Cible (autre participant impacté). */
+  targetName?: string;
+  targetEmail?: string;
+  /** IP simulée. */
+  ip?: string;
+  /** Texte libre additionnel (ex. motif de refus). */
+  message?: string;
 };
 
 export type SignatureFieldKind = "signature" | "initial";
@@ -68,6 +107,9 @@ export type Binder = {
   group: string;
   createdAt: string;
   startedAt?: string;
+  completedAt?: string;
+  stoppedAt?: string;
+  stoppedReason?: string;
   updatedAt: string;
   status: BinderStatus;
   progress: number;
@@ -78,6 +120,8 @@ export type Binder = {
   signers?: BinderSigner[];
   signatureFields?: SignatureField[];
   notifications?: BinderNotifications;
+  /** Journal d'audit applicatif (chronologique, le plus ancien en premier). */
+  auditEvents?: AuditEvent[];
 };
 
 export type Contact = {
