@@ -108,8 +108,22 @@ export function NewBinderDialog({
   const [activePage, setActivePage] = useState(1);
   const [activeKind, setActiveKind] = useState<SignatureFieldKind>("signature");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
 
   const stepIndex = STEPS.indexOf(step);
+  const isBusy = isSubmitting || isSavingDraft;
+
+  const hasDraftContent = useMemo(() => {
+    return Boolean(
+      name.trim() ||
+        description.trim() ||
+        group.trim() ||
+        documents.length ||
+        attachments.length ||
+        signers.some((signer) => signer.name.trim() || signer.email.trim()) ||
+        fields.length,
+    );
+  }, [name, description, group, documents.length, attachments.length, signers, fields.length]);
 
   const reset = () => {
     setStep("general");
@@ -127,8 +141,87 @@ export function NewBinderDialog({
     setActivePage(1);
   };
 
-  const handleClose = (v: boolean) => {
-    if (!v) reset();
+  const buildPayload = async (saveAsDraft: boolean) => {
+    const session = getSession();
+    const documentPayloads = await Promise.all(
+      documents.map(async ({ id, name: documentName, size, pages, file }) => ({
+        id,
+        name: documentName,
+        size,
+        pages,
+        content: file ? await fileToBase64(file) : undefined,
+      })),
+    );
+
+    const normalizedSigners: BinderSigner[] = signers
+      .map((signer, index) => ({
+        ...signer,
+        order: index + 1,
+        color: signer.color ?? SIGNER_COLORS[index % SIGNER_COLORS.length],
+        status: "pending" as const,
+      }))
+      .filter((signer) =>
+        saveAsDraft
+          ? Boolean(signer.name.trim()) && Boolean(signer.email.trim())
+          : true,
+      );
+
+    const allowedSignerIds = new Set(normalizedSigners.map((signer) => signer.id));
+    const allowedDocumentIds = new Set(documentPayloads.map((document) => document.id));
+    const normalizedFields = fields.filter(
+      (field) =>
+        allowedSignerIds.has(field.signerId) && allowedDocumentIds.has(field.documentId),
+    );
+
+    return {
+      name: name.trim(),
+      description: description.trim() || undefined,
+      group,
+      status: saveAsDraft ? ("draft" as const) : undefined,
+      ownerName: session?.name ?? "User",
+      ownerEmail: session?.email ?? "user@example.com",
+      ownerInitials: session?.initials ?? "US",
+      documents: documentPayloads,
+      attachments,
+      signers: normalizedSigners,
+      signatureFields: normalizedFields,
+      notifications: notif,
+      consolidation,
+    };
+  };
+
+  const saveDraftIfNeeded = async () => {
+    if (!hasDraftContent || !name.trim()) {
+      return "skipped" as const;
+    }
+
+    setIsSavingDraft(true);
+    try {
+      await create(await buildPayload(true));
+      toast.success("Brouillon enregistre");
+      return "saved" as const;
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Enregistrement du brouillon impossible"));
+      return "failed" as const;
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  const handleClose = async (v: boolean, options?: { saveDraft?: boolean }) => {
+    if (!v) {
+      const saveDraft = options?.saveDraft ?? true;
+      if (saveDraft) {
+        const outcome = await saveDraftIfNeeded();
+        if (outcome === "failed") {
+          return;
+        }
+      }
+      reset();
+      onOpenChange(false);
+      return;
+    }
+
     onOpenChange(v);
   };
 
@@ -141,7 +234,7 @@ export function NewBinderDialog({
   }, [step, name, signers]);
 
   const goNext = async () => {
-    if (!canNext || isSubmitting) return;
+    if (!canNext || isBusy) return;
     if (step === "review") {
       await submit();
       return;
@@ -160,41 +253,10 @@ export function NewBinderDialog({
   const goBack = () => stepIndex > 0 && setStep(STEPS[stepIndex - 1]);
 
   const submit = async () => {
-    const session = getSession();
-    const enrichedSigners: BinderSigner[] = signers.map((s, i) => ({
-      ...s,
-      order: i + 1,
-      color: s.color ?? SIGNER_COLORS[i % SIGNER_COLORS.length],
-      status: "pending",
-    }));
-
     setIsSubmitting(true);
     try {
-      const documentPayloads = await Promise.all(
-        documents.map(async ({ id, name: documentName, size, pages, file }) => ({
-          id,
-          name: documentName,
-          size,
-          pages,
-          content: file ? await fileToBase64(file) : undefined,
-        })),
-      );
-
-      const binder = await create({
-        name: name.trim(),
-        description: description.trim() || undefined,
-        group,
-        ownerName: session?.name ?? "User",
-        ownerEmail: session?.email ?? "user@example.com",
-        ownerInitials: session?.initials ?? "US",
-        documents: documentPayloads,
-        attachments,
-        signers: enrichedSigners,
-        signatureFields: fields,
-        notifications: notif,
-        consolidation,
-      });
-      handleClose(false);
+      const binder = await create(await buildPayload(false));
+      await handleClose(false, { saveDraft: false });
       onCreated?.(binder.id);
     } catch (error) {
       toast.error(getErrorMessage(error, "Création du parapheur impossible"));
@@ -291,7 +353,12 @@ export function NewBinderDialog({
   const fieldsOnPage = fields.filter((f) => f.documentId === activeDocId && f.page === activePage);
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        void handleClose(nextOpen);
+      }}
+    >
       <DialogContent className="overflow-hidden p-0 sm:max-w-4xl">
         <DialogHeader className="flex-row items-center justify-between space-y-0 bg-sidebar px-6 py-4 text-sidebar-foreground [&>button]:hidden">
           <DialogTitle className="flex items-center gap-3 text-lg font-semibold">
@@ -300,7 +367,9 @@ export function NewBinderDialog({
           </DialogTitle>
           <button
             type="button"
-            onClick={() => handleClose(false)}
+            onClick={() => {
+              void handleClose(false);
+            }}
             className="rounded p-1 text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground"
             aria-label="Close"
           >
@@ -774,8 +843,10 @@ export function NewBinderDialog({
           <Button
             type="button"
             variant="ghost"
-            onClick={() => handleClose(false)}
-            disabled={isSubmitting}
+            onClick={() => {
+              void handleClose(false);
+            }}
+            disabled={isBusy}
           >
             {t("common.cancel")}
           </Button>
@@ -784,14 +855,14 @@ export function NewBinderDialog({
               type="button"
               variant="outline"
               onClick={goBack}
-              disabled={stepIndex === 0 || isSubmitting}
+              disabled={stepIndex === 0 || isBusy}
             >
               {t("newBinder.back")}
             </Button>
             <Button
               type="button"
               onClick={() => void goNext()}
-              disabled={!canNext || isSubmitting}
+              disabled={!canNext || isBusy}
               className="bg-action text-action-foreground hover:opacity-90"
             >
               {step === "review" ? t("newBinder.create") : t("newBinder.next")}

@@ -7,6 +7,7 @@ import type {
   BinderDocument,
   BinderNotifications,
   BinderSigner,
+  BinderStatus,
   Contact,
   SignatureField,
 } from "./mockData";
@@ -22,6 +23,7 @@ type CreateBinderInput = {
   name: string;
   description?: string;
   group?: string;
+  status?: BinderStatus;
   ownerName: string;
   ownerEmail: string;
   ownerInitials: string;
@@ -269,6 +271,7 @@ export function useBinders() {
         name: data.name,
         description: data.description,
         group: data.group,
+        status: data.status,
         documents: data.documents,
         attachments: data.attachments,
         signers: data.signers,
