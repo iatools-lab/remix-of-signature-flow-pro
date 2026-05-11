@@ -124,6 +124,16 @@ export async function login(email: string, password: string) {
   return persistSession(response.session);
 }
 
+export async function loginWithGoogle(credential: string) {
+  const response = await apiFetch<SessionResponse>("/auth/google", {
+    method: "POST",
+    skipAuth: true,
+    body: JSON.stringify({ credential }),
+  });
+
+  return persistSession(response.session);
+}
+
 export async function signup(
   name: string,
   email: string,

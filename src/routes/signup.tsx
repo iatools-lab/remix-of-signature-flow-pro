@@ -4,11 +4,12 @@ import { useTranslation } from "react-i18next";
 import { Globe } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { PasswordInput } from "@/components/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/Logo";
-import { getSession, signup } from "@/lib/auth";
+import { getSession, loginWithGoogle, signup } from "@/lib/auth";
 import { getErrorMessage } from "@/lib/api";
 
 const searchSchema = z.object({
@@ -74,6 +75,23 @@ function SignupPage() {
       setIsSubmitting(false);
     }
   };
+
+  const handleGoogleCredential = useCallback(
+    async (credential: string) => {
+      if (isSubmitting) return;
+
+      setIsSubmitting(true);
+      try {
+        await loginWithGoogle(credential);
+        redirectAfterAuth();
+      } catch (error) {
+        toast.error(getErrorMessage(error, "Inscription Google impossible"));
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [isSubmitting, redirectAfterAuth],
+  );
 
   const toggleLang = () => {
     const next = i18n.language === "fr" ? "en" : "fr";
@@ -175,6 +193,17 @@ function SignupPage() {
             >
               {t("auth.signupSubmit")}
             </Button>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <div className="h-px flex-1 bg-border" />
+              <span>{t("common.or")}</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            <GoogleAuthButton
+              mode="signup"
+              disabled={isSubmitting}
+              locale={i18n.language}
+              onCredential={handleGoogleCredential}
+            />
             <p className="text-center text-sm text-muted-foreground">
               {t("auth.haveAccount")}{" "}
               <Link
