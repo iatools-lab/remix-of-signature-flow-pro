@@ -5,6 +5,7 @@ export type BinderDocument = {
   name: string;
   size?: number;
   pages?: number; // mocked page count
+  content?: string;
 };
 
 export type BinderAttachment = {

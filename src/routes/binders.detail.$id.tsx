@@ -31,9 +31,10 @@ import {
   FileSignature,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { DocumentPagePreview } from "@/components/DocumentPagePreview";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useBinders } from "@/lib/store";
-import { getErrorMessage } from "@/lib/api";
+import { getApiBaseUrl, getErrorMessage, getStoredAuthToken } from "@/lib/api";
 import { isAllowedSignerEmail } from "@/lib/email";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -42,13 +43,16 @@ import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format";
 import { generateSignedPdf, generateCertificatePdf } from "@/lib/evidence";
 import { getSession } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 import {
   SIGNER_COLORS,
   type AuditEvent,
   type AuditEventKind,
-  type BinderDocument,
   type BinderAttachment,
+  type BinderDocument,
   type BinderSigner,
+  type SignatureField,
+  type SignatureFieldKind,
 } from "@/lib/mockData";
 
 export const Route = createFileRoute("/binders/detail/$id")({
@@ -57,6 +61,26 @@ export const Route = createFileRoute("/binders/detail/$id")({
 });
 
 type Tab = "general" | "steps" | "documents" | "history" | "notifications" | "operations";
+
+type Handle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw" | "move";
+
+const ZONE_W = 0.22;
+const ZONE_H = 0.06;
+const INITIAL_W = 0.09;
+const INITIAL_H = 0.05;
+const MIN_W = 0.06;
+const MIN_H = 0.025;
+
+async function fileToBase64(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
 
 function BinderDetail() {
   const { id } = Route.useParams();
@@ -72,6 +96,7 @@ function BinderDetail() {
   const session = getSession();
   const sessionEmail = session?.email.trim().toLowerCase() ?? null;
   const binder = binders.find((b) => b.id === id);
+  const editable = binder?.status === "draft";
   const [tab, setTab] = useState<Tab>("general");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<null | "name" | "description" | "group">(null);
@@ -83,6 +108,15 @@ function BinderDetail() {
   const [newSignerEmail, setNewSignerEmail] = useState("");
   const [isAddingSigner, setIsAddingSigner] = useState(false);
   const [reminderFrequencyDraft, setReminderFrequencyDraft] = useState("24");
+  const [placementSignerId, setPlacementSignerId] = useState<string | null>(null);
+  const [placementDocId, setPlacementDocId] = useState<string | null>(null);
+  const [placementPage, setPlacementPage] = useState(1);
+  const [placementKind, setPlacementKind] = useState<SignatureFieldKind>("signature");
+  const [draftSignatureFields, setDraftSignatureFields] = useState<SignatureField[]>([]);
+  const [signatureFieldsDirty, setSignatureFieldsDirty] = useState(false);
+  const [isSavingSignatureFields, setIsSavingSignatureFields] = useState(false);
+  const [draftDocumentFiles, setDraftDocumentFiles] = useState<Record<string, File>>({});
+  const [documentPageCounts, setDocumentPageCounts] = useState<Record<string, number>>({});
   const docInputRef = useRef<HTMLInputElement>(null);
   const attInputRef = useRef<HTMLInputElement>(null);
 
@@ -93,6 +127,129 @@ function BinderDetail() {
 
     setReminderFrequencyDraft(String(binder.notifications?.reminderEveryHours ?? 24));
   }, [binder]);
+
+  useEffect(() => {
+    if (!binder) {
+      return;
+    }
+
+    setDraftDocumentFiles({});
+    setDocumentPageCounts({});
+    setPlacementPage(1);
+    setPlacementKind("signature");
+    setSignatureFieldsDirty(false);
+  }, [binder?.id]);
+
+  useEffect(() => {
+    if (!binder || signatureFieldsDirty) {
+      return;
+    }
+
+    setDraftSignatureFields(binder.signatureFields ?? []);
+  }, [binder, signatureFieldsDirty]);
+
+  useEffect(() => {
+    const documents = binder?.documents ?? [];
+
+    if (documents.length === 0) {
+      setPlacementDocId(null);
+      return;
+    }
+
+    if (!placementDocId || !documents.some((document) => document.id === placementDocId)) {
+      setPlacementDocId(documents[0].id);
+      setPlacementPage(1);
+    }
+  }, [binder?.documents, placementDocId]);
+
+  useEffect(() => {
+    const signers = binder?.signers ?? [];
+
+    if (signers.length === 0) {
+      setPlacementSignerId(null);
+      return;
+    }
+
+    if (!placementSignerId || !signers.some((signer) => signer.id === placementSignerId)) {
+      setPlacementSignerId(signers[0].id);
+    }
+  }, [binder?.signers, placementSignerId]);
+
+  useEffect(() => {
+    if (!binder || !editable || !placementDocId || draftDocumentFiles[placementDocId]) {
+      return;
+    }
+
+    const activeDocument = (binder.documents ?? []).find((document) => document.id === placementDocId);
+    if (!activeDocument) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadDocumentFile = async () => {
+      try {
+        const headers = new Headers();
+        const token = getStoredAuthToken();
+        if (token) {
+          headers.set("Authorization", `Bearer ${token}`);
+        }
+
+        const response = await fetch(
+          `${getApiBaseUrl()}/binders/${binder.id}/documents/${placementDocId}/content`,
+          {
+            headers,
+            credentials: "include",
+          },
+        );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const blob = await response.blob();
+        if (cancelled) {
+          return;
+        }
+
+        const file = new File([blob], activeDocument.name, {
+          type: blob.type || "application/pdf",
+        });
+
+        setDraftDocumentFiles((current) => {
+          if (current[placementDocId]) {
+            return current;
+          }
+
+          return { ...current, [placementDocId]: file };
+        });
+      } catch {
+        // Fall back to the placeholder preview when document bytes are unavailable.
+      }
+    };
+
+    void loadDocumentFile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [binder, editable, placementDocId, draftDocumentFiles]);
+
+  useEffect(() => {
+    if (!binder || !placementDocId) {
+      return;
+    }
+
+    const activeDocument = (binder.documents ?? []).find((document) => document.id === placementDocId);
+    const pageCount = Math.max(
+      1,
+      documentPageCounts[placementDocId] ?? activeDocument?.pages ?? 1,
+    );
+
+    if (placementPage > pageCount) {
+      setPlacementPage(pageCount);
+    }
+  }, [binder, placementDocId, placementPage, documentPageCounts]);
 
   if (!binder) {
     return (
@@ -108,6 +265,27 @@ function BinderDetail() {
   }
 
   const fmt = (iso?: string) => formatDateTime(iso, i18n.language);
+  const documents = binder.documents ?? [];
+  const signers = binder.signers ?? [];
+  const activePlacementDocument =
+    documents.find((document) => document.id === placementDocId) ?? documents[0] ?? null;
+  const activePlacementSigner =
+    signers.find((signer) => signer.id === placementSignerId) ?? signers[0] ?? null;
+  const activePlacementFile = activePlacementDocument
+    ? draftDocumentFiles[activePlacementDocument.id]
+    : undefined;
+  const activePlacementPageCount = activePlacementDocument
+    ? Math.max(
+        1,
+        documentPageCounts[activePlacementDocument.id] ?? activePlacementDocument.pages ?? 1,
+      )
+    : 1;
+  const activePlacementFields = activePlacementDocument
+    ? draftSignatureFields.filter(
+        (field) => field.documentId === activePlacementDocument.id && field.page === placementPage,
+      )
+    : [];
+  const displayedSignatureFields = editable ? draftSignatureFields : (binder.signatureFields ?? []);
 
   const TABS: { key: Tab; label: string }[] = [
     { key: "general", label: t("detail.tabs.general") },
@@ -136,8 +314,6 @@ function BinderDetail() {
       // ignore
     }
   };
-
-  const editable = binder.status === "draft";
 
   const startEdit = (field: "name" | "description" | "group", current: string) => {
     if (!editable) return;
@@ -204,8 +380,15 @@ function BinderDetail() {
     if (!editable) return;
     if (!window.confirm(t("detail.confirmRemoveSigner"))) return;
     const signers = (binder.signers ?? []).filter((s) => s.id !== signerId);
-    const signatureFields = (binder.signatureFields ?? []).filter((f) => f.signerId !== signerId);
-    update(binder.id, { signers, signatureFields });
+    const signatureFields = draftSignatureFields.filter((field) => field.signerId !== signerId);
+    void update(binder.id, { signers, signatureFields })
+      .then((updatedBinder) => {
+        setDraftSignatureFields(updatedBinder.signatureFields ?? []);
+        setSignatureFieldsDirty(false);
+      })
+      .catch((error) => {
+        toast.error(getErrorMessage(error));
+      });
   };
 
   const addSignerRow = () => {
@@ -239,10 +422,16 @@ function BinderDetail() {
     };
 
     setIsAddingSigner(true);
-    void update(binder.id, { signers: [...list, newSigner] })
-      .then(() => {
+    void update(binder.id, {
+      signers: [...list, newSigner],
+      ...(signatureFieldsDirty ? { signatureFields: draftSignatureFields } : {}),
+    })
+      .then((updatedBinder) => {
         setNewSignerName("");
         setNewSignerEmail("");
+        setDraftSignatureFields(updatedBinder.signatureFields ?? []);
+        setSignatureFieldsDirty(false);
+        setPlacementSignerId(updatedBinder.signers?.at(-1)?.id ?? null);
       })
       .catch((error) => {
         toast.error(getErrorMessage(error, t("detail.addSignerError")));
@@ -278,26 +467,148 @@ function BinderDetail() {
   const updateSignerField = (signerId: string, patch: Partial<BinderSigner>) => {
     if (!editable) return;
     const signers = (binder.signers ?? []).map((s) => (s.id === signerId ? { ...s, ...patch } : s));
-    update(binder.id, { signers });
+    void update(binder.id, {
+      signers,
+      ...(signatureFieldsDirty ? { signatureFields: draftSignatureFields } : {}),
+    })
+      .then((updatedBinder) => {
+        if (!signatureFieldsDirty) {
+          return;
+        }
+
+        setDraftSignatureFields(updatedBinder.signatureFields ?? []);
+        setSignatureFieldsDirty(false);
+      })
+      .catch((error) => {
+        toast.error(getErrorMessage(error));
+      });
   };
 
   const removeDocument = (docId: string) => {
     if (!editable) return;
     if (!window.confirm(t("detail.confirmRemoveDocument"))) return;
     const documents = (binder.documents ?? []).filter((d) => d.id !== docId);
-    const signatureFields = (binder.signatureFields ?? []).filter((f) => f.documentId !== docId);
-    update(binder.id, { documents, signatureFields });
+    const signatureFields = draftSignatureFields.filter((field) => field.documentId !== docId);
+    void update(binder.id, { documents, signatureFields })
+      .then((updatedBinder) => {
+        setDraftSignatureFields(updatedBinder.signatureFields ?? []);
+        setSignatureFieldsDirty(false);
+        setDraftDocumentFiles((current) => {
+          const next = { ...current };
+          delete next[docId];
+          return next;
+        });
+        setDocumentPageCounts((current) => {
+          const next = { ...current };
+          delete next[docId];
+          return next;
+        });
+      })
+      .catch((error) => {
+        toast.error(getErrorMessage(error));
+      });
   };
 
-  const onPickDocs = (files: FileList | null) => {
+  const onPickDocs = async (files: FileList | null) => {
     if (!files || !editable) return;
-    const next: BinderDocument[] = Array.from(files).map((f, i) => ({
-      id: `d_${Date.now()}_${i}`,
-      name: f.name,
-      size: f.size,
-      pages: 1 + ((f.size ?? 1000) % 3),
-    }));
-    update(binder.id, { documents: [...(binder.documents ?? []), ...next] });
+    const selectedFiles = Array.from(files);
+
+    try {
+      const next: BinderDocument[] = await Promise.all(
+        selectedFiles.map(async (file, index) => ({
+          id: `d_${Date.now()}_${index}`,
+          name: file.name,
+          size: file.size,
+          pages: 1,
+          content: await fileToBase64(file),
+        })),
+      );
+
+      const updatedBinder = await update(binder.id, {
+        documents: [...(binder.documents ?? []), ...next],
+        ...(signatureFieldsDirty ? { signatureFields: draftSignatureFields } : {}),
+      });
+
+      const createdDocuments = updatedBinder.documents?.slice(-next.length) ?? [];
+      setDraftSignatureFields(updatedBinder.signatureFields ?? []);
+      setSignatureFieldsDirty(false);
+      setDraftDocumentFiles((current) => {
+        const mapped = { ...current };
+        createdDocuments.forEach((document, index) => {
+          const sourceFile = selectedFiles[index];
+          if (document && sourceFile) {
+            mapped[document.id] = sourceFile;
+          }
+        });
+        return mapped;
+      });
+
+      const lastCreatedDocument = createdDocuments.at(-1);
+      if (lastCreatedDocument) {
+        setPlacementDocId(lastCreatedDocument.id);
+        setPlacementPage(1);
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
+  const patchDraftSignatureField = (fieldId: string, patch: Partial<SignatureField>) => {
+    setDraftSignatureFields((current) =>
+      current.map((field) => (field.id === fieldId ? { ...field, ...patch } : field)),
+    );
+    setSignatureFieldsDirty(true);
+  };
+
+  const removeDraftSignatureField = (fieldId: string) => {
+    setDraftSignatureFields((current) => current.filter((field) => field.id !== fieldId));
+    setSignatureFieldsDirty(true);
+  };
+
+  const placeDraftSignatureField = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!editable || !activePlacementDocument || !activePlacementSigner) {
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const width = placementKind === "initial" ? INITIAL_W : ZONE_W;
+    const height = placementKind === "initial" ? INITIAL_H : ZONE_H;
+    const x = Math.max(0, Math.min(1 - width, (event.clientX - rect.left) / rect.width - width / 2));
+    const y = Math.max(0, Math.min(1 - height, (event.clientY - rect.top) / rect.height - height / 2));
+
+    setDraftSignatureFields((current) => [
+      ...current,
+      {
+        id: `f_${Date.now()}`,
+        documentId: activePlacementDocument.id,
+        signerId: activePlacementSigner.id,
+        page: placementPage,
+        kind: placementKind,
+        x,
+        y,
+        width,
+        height,
+      },
+    ]);
+    setSignatureFieldsDirty(true);
+  };
+
+  const saveDraftSignatureFields = async () => {
+    if (!editable) {
+      return;
+    }
+
+    setIsSavingSignatureFields(true);
+    try {
+      const updatedBinder = await update(binder.id, { signatureFields: draftSignatureFields });
+      setDraftSignatureFields(updatedBinder.signatureFields ?? []);
+      setSignatureFieldsDirty(false);
+      toast.success(t("detail.zonesSaved"));
+    } catch (error) {
+      toast.error(getErrorMessage(error, t("detail.zonesSaveError")));
+    } finally {
+      setIsSavingSignatureFields(false);
+    }
   };
 
   const removeAttachment = (attId: string) => {
@@ -542,7 +853,7 @@ function BinderDetail() {
                 <ul className="space-y-2">
                   {binder.signers?.map((s, i) => {
                     const color = s.color ?? SIGNER_COLORS[i % SIGNER_COLORS.length];
-                    const zoneCount = (binder.signatureFields ?? []).filter(
+                    const zoneCount = displayedSignatureFields.filter(
                       (f) => f.signerId === s.id,
                     ).length;
                     const signed = s.status === "signed";
@@ -732,7 +1043,7 @@ function BinderDetail() {
               ) : (
                 <ul className="space-y-2">
                   {binder.documents?.map((d) => {
-                    const zones = (binder.signatureFields ?? []).filter(
+                    const zones = displayedSignatureFields.filter(
                       (f) => f.documentId === d.id,
                     ).length;
                     return (
@@ -829,6 +1140,210 @@ function BinderDetail() {
                       </button>
                     </>
                   )}
+                </div>
+              )}
+            </Section>
+          )}
+
+          {tab === "documents" && editable && (
+            <Section title={t("newBinder.steps.placement")}>
+              {documents.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  {t("newBinder.placementNoDocs")}
+                </p>
+              ) : signers.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  {t("newBinder.placementNoSigners")}
+                </p>
+              ) : (
+                <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+                  <div className="space-y-4">
+                    <div className="rounded-lg border bg-muted/20 p-4">
+                      <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        {t("detail.documentsTitle")}
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {documents.map((document) => {
+                          const isActive = document.id === activePlacementDocument?.id;
+                          return (
+                            <button
+                              key={document.id}
+                              onClick={() => {
+                                setPlacementDocId(document.id);
+                                setPlacementPage(1);
+                              }}
+                              className={cn(
+                                "rounded-full border px-3 py-1.5 text-left text-sm transition",
+                                isActive
+                                  ? "border-action bg-action/10 text-action"
+                                  : "border-border bg-background text-foreground hover:bg-accent",
+                              )}
+                            >
+                              {document.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border bg-muted/20 p-4">
+                      <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        {t("newBinder.selectSigner")}
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {signers.map((signer, index) => {
+                          const color = signer.color ?? SIGNER_COLORS[index % SIGNER_COLORS.length];
+                          const isActive = signer.id === activePlacementSigner?.id;
+                          return (
+                            <button
+                              key={signer.id}
+                              onClick={() => setPlacementSignerId(signer.id)}
+                              className="rounded-full border px-3 py-1.5 text-sm transition"
+                              style={{
+                                borderColor: color,
+                                backgroundColor: isActive ? `${color}18` : "transparent",
+                                color,
+                              }}
+                            >
+                              {signer.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border bg-muted/20 p-4">
+                      <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        {t("newBinder.zoneKind")}
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        {(["signature", "initial"] as const).map((kind) => (
+                          <button
+                            key={kind}
+                            onClick={() => setPlacementKind(kind)}
+                            className={cn(
+                              "rounded-full border px-3 py-1.5 text-sm transition",
+                              placementKind === kind
+                                ? "border-action bg-action/10 text-action"
+                                : "border-border bg-background text-foreground hover:bg-accent",
+                            )}
+                          >
+                            {t(`newBinder.kind.${kind}`)}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        {placementKind === "signature"
+                          ? t("newBinder.kindHelpSignature")
+                          : t("newBinder.kindHelpInitial")}
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg border bg-muted/20 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            {t("newBinder.page")}
+                          </div>
+                          <div className="mt-1 text-sm font-medium text-foreground">
+                            {placementPage} / {activePlacementPageCount}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPlacementPage((current) => Math.max(1, current - 1))}
+                            disabled={placementPage <= 1}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setPlacementPage((current) =>
+                                Math.min(activePlacementPageCount, current + 1),
+                              )
+                            }
+                            disabled={placementPage >= activePlacementPageCount}
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="mt-3 rounded-md border bg-background px-3 py-2 text-xs text-muted-foreground">
+                        {t("newBinder.zonesCount", { count: activePlacementFields.length })}
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-action/20 bg-action/5 p-4">
+                      <p className="text-sm text-foreground">{t("newBinder.placementHelp")}</p>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {t("newBinder.clickToPlace")}
+                      </p>
+                      <Button
+                        onClick={() => void saveDraftSignatureFields()}
+                        disabled={!signatureFieldsDirty || isSavingSignatureFields}
+                        className="mt-4 w-full"
+                      >
+                        {isSavingSignatureFields ? t("detail.savingZones") : t("detail.saveZones")}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {activePlacementDocument && (
+                      <DocumentPagePreview
+                        documentName={activePlacementDocument.name}
+                        page={placementPage}
+                        totalPages={activePlacementPageCount}
+                        documentFile={activePlacementFile}
+                        className="mx-auto w-full max-w-3xl"
+                        onClick={placeDraftSignatureField}
+                        onTotalPagesChange={(pages) => {
+                          setDocumentPageCounts((current) =>
+                            current[activePlacementDocument.id] === pages
+                              ? current
+                              : { ...current, [activePlacementDocument.id]: pages },
+                          );
+                        }}
+                      >
+                        {activePlacementFields.map((field, index) => {
+                          const signer = signers.find((item) => item.id === field.signerId);
+                          const color =
+                            signer?.color ?? SIGNER_COLORS[index % SIGNER_COLORS.length];
+
+                          return (
+                            <ResizableField
+                              key={field.id}
+                              field={field}
+                              color={color}
+                              label={
+                                signer?.name ??
+                                t(
+                                  field.kind === "initial"
+                                    ? "newBinder.kind.initial"
+                                    : "newBinder.kind.signature",
+                                )
+                              }
+                              onChange={(patch) => patchDraftSignatureField(field.id, patch)}
+                              onRemove={() => removeDraftSignatureField(field.id)}
+                            />
+                          );
+                        })}
+                      </DocumentPagePreview>
+                    )}
+                    <div className="rounded-md border bg-background px-3 py-2 text-xs text-muted-foreground">
+                      {activePlacementDocument
+                        ? `${activePlacementDocument.name} • ${t("newBinder.zonesCount", {
+                            count: displayedSignatureFields.filter(
+                              (field) => field.documentId === activePlacementDocument.id,
+                            ).length,
+                          })}`
+                        : t("newBinder.placementNoDocs")}
+                    </div>
+                  </div>
                 </div>
               )}
             </Section>
@@ -1018,6 +1533,130 @@ function InlineEditor({
       >
         <X className="h-3.5 w-3.5" />
       </button>
+    </div>
+  );
+}
+
+function ResizableField({
+  field,
+  color,
+  label,
+  onChange,
+  onRemove,
+}: {
+  field: SignatureField;
+  color: string;
+  label: string;
+  onChange: (patch: Partial<SignatureField>) => void;
+  onRemove: () => void;
+}) {
+  const startDrag = (event: React.PointerEvent, handle: Handle) => {
+    event.stopPropagation();
+    event.preventDefault();
+
+    const target = event.currentTarget as HTMLElement;
+    const parent =
+      target.closest<HTMLElement>("[data-page-surface]") ??
+      (target.offsetParent as HTMLElement | null);
+
+    if (!parent) {
+      return;
+    }
+
+    const rect = parent.getBoundingClientRect();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const start = { x: field.x, y: field.y, w: field.width, h: field.height };
+
+    const onMove = (moveEvent: PointerEvent) => {
+      const dx = (moveEvent.clientX - startX) / rect.width;
+      const dy = (moveEvent.clientY - startY) / rect.height;
+      let { x, y, w, h } = start;
+
+      if (handle === "move") {
+        x = Math.max(0, Math.min(1 - w, start.x + dx));
+        y = Math.max(0, Math.min(1 - h, start.y + dy));
+      } else {
+        if (handle.includes("e")) {
+          w = Math.max(MIN_W, Math.min(1 - start.x, start.w + dx));
+        }
+        if (handle.includes("s")) {
+          h = Math.max(MIN_H, Math.min(1 - start.y, start.h + dy));
+        }
+        if (handle.includes("w")) {
+          const nextWidth = Math.max(MIN_W, start.w - dx);
+          x = Math.max(0, start.x + (start.w - nextWidth));
+          w = nextWidth;
+        }
+        if (handle.includes("n")) {
+          const nextHeight = Math.max(MIN_H, start.h - dy);
+          y = Math.max(0, start.y + (start.h - nextHeight));
+          h = nextHeight;
+        }
+      }
+
+      onChange({ x, y, width: w, height: h });
+    };
+
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  const handles: { key: Handle; cls: string }[] = [
+    { key: "nw", cls: "-left-1 -top-1 cursor-nwse-resize" },
+    { key: "n", cls: "left-1/2 -top-1 -translate-x-1/2 cursor-ns-resize" },
+    { key: "ne", cls: "-right-1 -top-1 cursor-nesw-resize" },
+    { key: "e", cls: "-right-1 top-1/2 -translate-y-1/2 cursor-ew-resize" },
+    { key: "se", cls: "-right-1 -bottom-1 cursor-nwse-resize" },
+    { key: "s", cls: "left-1/2 -bottom-1 -translate-x-1/2 cursor-ns-resize" },
+    { key: "sw", cls: "-left-1 -bottom-1 cursor-nesw-resize" },
+    { key: "w", cls: "-left-1 top-1/2 -translate-y-1/2 cursor-ew-resize" },
+  ];
+
+  return (
+    <div
+      onPointerDown={(event) => startDrag(event, "move")}
+      onClick={(event) => event.stopPropagation()}
+      className="group absolute flex cursor-move select-none items-center justify-between rounded border-2 px-1.5 text-[9px] font-semibold uppercase shadow-sm"
+      style={{
+        left: `${field.x * 100}%`,
+        top: `${field.y * 100}%`,
+        width: `${field.width * 100}%`,
+        height: `${field.height * 100}%`,
+        borderColor: color,
+        backgroundColor: `${color}25`,
+        color,
+        touchAction: "none",
+      }}
+    >
+      <span className="pointer-events-none truncate">{label}</span>
+      <button
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          onRemove();
+        }}
+        className="rounded p-0.5 hover:bg-white/40"
+        aria-label="Remove"
+      >
+        <X className="h-2.5 w-2.5" />
+      </button>
+      {handles.map((handle) => (
+        <span
+          key={handle.key}
+          onPointerDown={(event) => startDrag(event, handle.key)}
+          className={cn(
+            "absolute h-2 w-2 rounded-sm border bg-white opacity-0 transition group-hover:opacity-100",
+            handle.cls,
+          )}
+          style={{ borderColor: color, touchAction: "none" }}
+        />
+      ))}
     </div>
   );
 }
