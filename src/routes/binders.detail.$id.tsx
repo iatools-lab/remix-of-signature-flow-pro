@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -34,6 +34,7 @@ import { AppShell } from "@/components/AppShell";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useBinders } from "@/lib/store";
 import { getErrorMessage } from "@/lib/api";
+import { isAllowedSignerEmail } from "@/lib/email";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -78,8 +79,20 @@ function BinderDetail() {
   const [editingSignerEmailId, setEditingSignerEmailId] = useState<string | null>(null);
   const [draftSignerEmail, setDraftSignerEmail] = useState("");
   const [savingSignerEmailId, setSavingSignerEmailId] = useState<string | null>(null);
+  const [newSignerName, setNewSignerName] = useState("");
+  const [newSignerEmail, setNewSignerEmail] = useState("");
+  const [isAddingSigner, setIsAddingSigner] = useState(false);
+  const [reminderFrequencyDraft, setReminderFrequencyDraft] = useState("24");
   const docInputRef = useRef<HTMLInputElement>(null);
   const attInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!binder) {
+      return;
+    }
+
+    setReminderFrequencyDraft(String(binder.notifications?.reminderEveryHours ?? 24));
+  }, [binder]);
 
   if (!binder) {
     return (
@@ -154,6 +167,11 @@ function BinderDetail() {
       return;
     }
 
+    if (!isAllowedSignerEmail(draftSignerEmail)) {
+      toast.error(t("detail.inviteEmailDomainError"));
+      return;
+    }
+
     setSavingSignerEmailId(signer.id);
     try {
       await updateSignerInvitationEmail(binder.id, signer.id, draftSignerEmail.trim());
@@ -192,18 +210,69 @@ function BinderDetail() {
 
   const addSignerRow = () => {
     if (!editable) return;
+
+    if (!newSignerName.trim()) {
+      toast.error(t("detail.addSignerNameRequired"));
+      return;
+    }
+
+    if (!newSignerEmail.trim()) {
+      toast.error(t("detail.addSignerEmailRequired"));
+      return;
+    }
+
+    if (!isAllowedSignerEmail(newSignerEmail)) {
+      toast.error(t("detail.inviteEmailDomainError"));
+      return;
+    }
+
     const list = binder.signers ?? [];
     const order = list.length + 1;
     const color = SIGNER_COLORS[list.length % SIGNER_COLORS.length];
     const newSigner: BinderSigner = {
       id: `s_${Date.now()}`,
       order,
-      name: "Nouveau signataire",
-      email: "",
+      name: newSignerName.trim(),
+      email: newSignerEmail.trim(),
       color,
       status: "pending",
     };
-    update(binder.id, { signers: [...list, newSigner] });
+
+    setIsAddingSigner(true);
+    void update(binder.id, { signers: [...list, newSigner] })
+      .then(() => {
+        setNewSignerName("");
+        setNewSignerEmail("");
+      })
+      .catch((error) => {
+        toast.error(getErrorMessage(error, t("detail.addSignerError")));
+      })
+      .finally(() => {
+        setIsAddingSigner(false);
+      });
+  };
+
+  const updateReminderFrequency = () => {
+    if (!editable) return;
+
+    const nextValue = Math.max(1, Number(reminderFrequencyDraft) || 24);
+    const current = binder.notifications ?? {
+      onStart: true,
+      onComplete: true,
+      reminders: true,
+      reminderEveryHours: 24,
+    };
+
+    setReminderFrequencyDraft(String(nextValue));
+    void update(binder.id, {
+      notifications: {
+        ...current,
+        reminders: true,
+        reminderEveryHours: nextValue,
+      },
+    }).catch((error) => {
+      toast.error(getErrorMessage(error, t("detail.reminderFrequencyUpdateError")));
+    });
   };
 
   const updateSignerField = (signerId: string, patch: Partial<BinderSigner>) => {
@@ -627,13 +696,29 @@ function BinderDetail() {
                 </ul>
               )}
               {editable && (
-                <button
-                  onClick={addSignerRow}
-                  className="mx-auto mt-4 flex items-center gap-2 py-3 text-action hover:underline"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span className="font-medium">{t("detail.addSigner")}</span>
-                </button>
+                <div className="mt-4 rounded-md border border-dashed border-action/40 bg-action/5 p-3">
+                  <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto] md:items-start">
+                    <Input
+                      value={newSignerName}
+                      onChange={(e) => setNewSignerName(e.target.value)}
+                      placeholder={t("newBinder.signerName")}
+                      className="h-9"
+                    />
+                    <Input
+                      value={newSignerEmail}
+                      onChange={(e) => setNewSignerEmail(e.target.value)}
+                      placeholder={t("newBinder.signerEmail")}
+                      className="h-9"
+                    />
+                    <Button onClick={addSignerRow} disabled={isAddingSigner} className="gap-2">
+                      <Plus className="h-4 w-4" />
+                      {t("detail.addSigner")}
+                    </Button>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {t("newBinder.signerEmailHelp")}
+                  </p>
+                </div>
               )}
             </Section>
           )}
@@ -791,12 +876,33 @@ function BinderDetail() {
                   </label>
                 );
               })}
-              {binder.notifications?.reminders && binder.notifications.reminderEveryHours ? (
-                <p className="text-xs text-muted-foreground">
-                  {t("newBinder.reminderEveryHours", {
-                    count: binder.notifications.reminderEveryHours,
-                  })}
-                </p>
+              {binder.notifications?.reminders ? (
+                editable ? (
+                  <div className="space-y-2 pt-1">
+                    <Input
+                      type="number"
+                      min={1}
+                      value={reminderFrequencyDraft}
+                      onChange={(e) => setReminderFrequencyDraft(e.target.value)}
+                      onBlur={updateReminderFrequency}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          updateReminderFrequency();
+                        }
+                      }}
+                      className="max-w-[180px]"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {t("newBinder.reminderFrequencyHelp")}
+                    </p>
+                  </div>
+                ) : binder.notifications.reminderEveryHours ? (
+                  <p className="text-xs text-muted-foreground">
+                    {t("newBinder.reminderEveryHours", {
+                      count: binder.notifications.reminderEveryHours,
+                    })}
+                  </p>
+                ) : null
               ) : null}
             </Section>
           )}

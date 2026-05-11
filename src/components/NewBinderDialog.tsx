@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getErrorMessage } from "@/lib/api";
+import { isAllowedSignerEmail } from "@/lib/email";
 import { useBinders } from "@/lib/store";
 import { getSession } from "@/lib/auth";
 import {
@@ -110,6 +111,16 @@ export function NewBinderDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
 
+  const invalidSignerIds = useMemo(
+    () =>
+      new Set(
+        signers
+          .filter((signer) => signer.email.trim() && !isAllowedSignerEmail(signer.email))
+          .map((signer) => signer.id),
+      ),
+    [signers],
+  );
+
   const stepIndex = STEPS.indexOf(step);
   const isBusy = isSubmitting || isSavingDraft;
 
@@ -142,6 +153,10 @@ export function NewBinderDialog({
   };
 
   const buildPayload = async (saveAsDraft: boolean) => {
+    if (invalidSignerIds.size > 0) {
+      throw new Error(t("newBinder.signerEmailDomainError"));
+    }
+
     const session = getSession();
     const documentPayloads = await Promise.all(
       documents.map(async ({ id, name: documentName, size, pages, file }) => ({
@@ -228,7 +243,12 @@ export function NewBinderDialog({
   const canNext = useMemo(() => {
     if (step === "general") return name.trim().length > 0;
     if (step === "signers")
-      return signers.length > 0 && signers.every((s) => s.name.trim() && s.email.trim());
+      return (
+        signers.length > 0 &&
+        signers.every(
+          (s) => s.name.trim() && s.email.trim() && isAllowedSignerEmail(s.email),
+        )
+      );
     if (step === "placement") return true; // optional
     return true;
   }, [step, name, signers]);
@@ -518,6 +538,7 @@ export function NewBinderDialog({
 
           {step === "signers" && (
             <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">{t("newBinder.signerEmailHelp")}</p>
               {signers.length === 0 && (
                 <p className="text-center text-sm text-muted-foreground">
                   {t("newBinder.noSigners")}
@@ -545,16 +566,23 @@ export function NewBinderDialog({
                         )
                       }
                     />
-                    <Input
-                      type="email"
-                      placeholder={t("newBinder.signerEmail")}
-                      value={s.email}
-                      onChange={(e) =>
-                        setSigners((prev) =>
-                          prev.map((x) => (x.id === s.id ? { ...x, email: e.target.value } : x)),
-                        )
-                      }
-                    />
+                    <div className="space-y-1">
+                      <Input
+                        type="email"
+                        placeholder={t("newBinder.signerEmail")}
+                        value={s.email}
+                        onChange={(e) =>
+                          setSigners((prev) =>
+                            prev.map((x) => (x.id === s.id ? { ...x, email: e.target.value } : x)),
+                          )
+                        }
+                      />
+                      {s.email.trim() && invalidSignerIds.has(s.id) ? (
+                        <p className="text-xs text-destructive">
+                          {t("newBinder.signerEmailDomainError")}
+                        </p>
+                      ) : null}
+                    </div>
                     <button
                       onClick={() => removeSigner(s.id)}
                       className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
