@@ -16,6 +16,8 @@ import { formatDateTime } from "./format";
 type PdfjsModule = typeof import("pdfjs-dist");
 
 let pdfjsPromise: Promise<PdfjsModule> | null = null;
+const SIGNED_PDF_RENDER_SCALE = 1.5;
+const sourceDocumentBytesCache = new Map<string, Promise<Uint8Array>>();
 
 const KIND_LABEL_FR: Record<string, string> = {
   "binder.created": "Parapheur créé",
@@ -144,6 +146,22 @@ async function fetchSourceDocumentBytes(binderId: string, documentId: string) {
   return new Uint8Array(await response.arrayBuffer());
 }
 
+function loadSourceDocumentBytes(binderId: string, documentId: string) {
+  const cacheKey = `${binderId}:${documentId}`;
+  const cached = sourceDocumentBytesCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const pending = fetchSourceDocumentBytes(binderId, documentId).catch((error) => {
+    sourceDocumentBytesCache.delete(cacheKey);
+    throw error;
+  });
+
+  sourceDocumentBytesCache.set(cacheKey, pending);
+  return pending;
+}
+
 function getImageFormat(data: string): "PNG" | "JPEG" {
   return /data:image\/jpe?g/i.test(data) ? "JPEG" : "PNG";
 }
@@ -247,9 +265,32 @@ async function buildSignedPdf(binder: Binder, lang: string, options: BuildSigned
 
   const { getDocument } = await loadPdfjs();
   let output: jsPDF | null = null;
+  const signersById = new Map((binder.signers ?? []).map((signer) => [signer.id, signer]));
+  const fieldsByPage = new Map<string, SignatureField[]>();
 
-  for (const binderDocument of documents) {
-    const sourceBytes = await fetchSourceDocumentBytes(binder.id, binderDocument.id);
+  for (const field of binder.signatureFields ?? []) {
+    if (!field.signatureData) {
+      continue;
+    }
+
+    const pageKey = `${field.documentId}:${field.page}`;
+    const pageFields = fieldsByPage.get(pageKey);
+    if (pageFields) {
+      pageFields.push(field);
+      continue;
+    }
+
+    fieldsByPage.set(pageKey, [field]);
+  }
+
+  const sourceDocuments = await Promise.all(
+    documents.map(async (binderDocument) => ({
+      binderDocument,
+      sourceBytes: await loadSourceDocumentBytes(binder.id, binderDocument.id),
+    })),
+  );
+
+  for (const { binderDocument, sourceBytes } of sourceDocuments) {
     const loadingTask = getDocument({ data: sourceBytes });
     const sourcePdf = await loadingTask.promise;
 
@@ -257,7 +298,7 @@ async function buildSignedPdf(binder: Binder, lang: string, options: BuildSigned
       for (let pageNumber = 1; pageNumber <= sourcePdf.numPages; pageNumber += 1) {
         const sourcePage = await sourcePdf.getPage(pageNumber);
         const exportViewport = sourcePage.getViewport({ scale: 1 });
-        const renderViewport = sourcePage.getViewport({ scale: 2 });
+        const renderViewport = sourcePage.getViewport({ scale: SIGNED_PDF_RENDER_SCALE });
         const canvas = window.document.createElement("canvas");
         canvas.width = Math.ceil(renderViewport.width);
         canvas.height = Math.ceil(renderViewport.height);
@@ -285,7 +326,7 @@ async function buildSignedPdf(binder: Binder, lang: string, options: BuildSigned
         }
 
         output.addImage(
-          canvas.toDataURL("image/png"),
+          canvas,
           "PNG",
           0,
           0,
@@ -295,17 +336,15 @@ async function buildSignedPdf(binder: Binder, lang: string, options: BuildSigned
           "FAST",
         );
 
-        const pageFields = (binder.signatureFields ?? []).filter(
-          (field) =>
-            field.documentId === binderDocument.id &&
-            field.page === pageNumber &&
-            Boolean(field.signatureData),
-        );
+        const pageFields = fieldsByPage.get(`${binderDocument.id}:${pageNumber}`) ?? [];
 
         for (const field of pageFields) {
-          const signer = binder.signers?.find((entry) => entry.id === field.signerId);
+          const signer = signersById.get(field.signerId);
           drawSignedField(output, field, signer, exportViewport.width, exportViewport.height, lang);
         }
+
+        canvas.width = 0;
+        canvas.height = 0;
       }
     } finally {
       await sourcePdf.destroy();
