@@ -57,6 +57,8 @@ export type BinderInvitation = {
   signPath: string;
 };
 
+type CachedBinder = Partial<Binder> & Pick<Binder, "id" | "name" | "status" | "createdAt">;
+
 function readCache<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
   const raw = localStorage.getItem(key);
@@ -79,8 +81,48 @@ function clearCache(key: string) {
   localStorage.removeItem(key);
 }
 
-function sortBinders(items: Binder[]) {
-  return [...items].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+function isCachedBinder(value: unknown): value is CachedBinder {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const binder = value as Partial<Binder>;
+  return (
+    typeof binder.id === "string" &&
+    typeof binder.name === "string" &&
+    typeof binder.status === "string" &&
+    typeof binder.createdAt === "string"
+  );
+}
+
+function normalizeBinderRecord<T extends CachedBinder>(binder: T): Binder {
+  return {
+    ...binder,
+    updatedAt:
+      typeof binder.updatedAt === "string" && binder.updatedAt.trim()
+        ? binder.updatedAt
+        : binder.createdAt,
+  } as Binder;
+}
+
+function readBinderCache(key: string) {
+  return readCache<unknown[]>(key, []).filter(isCachedBinder).map(normalizeBinderRecord);
+}
+
+function getBinderSortKey(binder: Pick<Partial<Binder>, "updatedAt" | "createdAt">) {
+  if (typeof binder.updatedAt === "string" && binder.updatedAt.trim()) {
+    return binder.updatedAt;
+  }
+
+  if (typeof binder.createdAt === "string" && binder.createdAt.trim()) {
+    return binder.createdAt;
+  }
+
+  return "";
+}
+
+function sortBinders<T extends Pick<Partial<Binder>, "updatedAt" | "createdAt">>(items: T[]) {
+  return [...items].sort((left, right) => getBinderSortKey(right).localeCompare(getBinderSortKey(left)));
 }
 
 function sortContacts(items: Contact[]) {
@@ -92,17 +134,18 @@ function sortContacts(items: Contact[]) {
 }
 
 function replaceBinderCache(nextBinder: Binder) {
-  const current = readCache<Binder[]>(BINDER_CACHE_KEY, []);
+  const current = readBinderCache(BINDER_CACHE_KEY);
+  const safeNextBinder = normalizeBinderRecord(nextBinder);
   const next = sortBinders([
-    nextBinder,
-    ...current.filter((binder) => binder.id !== nextBinder.id),
+    safeNextBinder,
+    ...current.filter((binder) => binder.id !== safeNextBinder.id),
   ]);
   writeCache(BINDER_CACHE_KEY, next);
   return next;
 }
 
 function removeBinderFromCache(id: string) {
-  const next = readCache<Binder[]>(BINDER_CACHE_KEY, []).filter((binder) => binder.id !== id);
+  const next = readBinderCache(BINDER_CACHE_KEY).filter((binder) => binder.id !== id);
   writeCache(BINDER_CACHE_KEY, next);
   return next;
 }
@@ -132,7 +175,7 @@ async function fetchBinders() {
   }
 
   const binders = await apiFetch<Binder[]>("/binders");
-  const next = sortBinders(binders);
+  const next = sortBinders(binders.map(normalizeBinderRecord));
   writeCache(BINDER_CACHE_KEY, next);
   return next;
 }
@@ -144,7 +187,7 @@ async function fetchScopedBinders(path: string, cacheKey: string) {
   }
 
   const binders = await apiFetch<Binder[]>(path);
-  const next = sortBinders(binders);
+  const next = sortBinders(binders.map(normalizeBinderRecord));
   writeCache(cacheKey, next);
   return next;
 }
@@ -216,7 +259,7 @@ export function useBinders() {
     let active = true;
 
     if (hasStoredAuthToken()) {
-      const cached = readCache<Binder[]>(BINDER_CACHE_KEY, []);
+      const cached = readBinderCache(BINDER_CACHE_KEY);
       if (cached.length) setBinders(cached);
     }
 
@@ -435,7 +478,7 @@ function useBinderCollection(path: string, cacheKey: string) {
     let active = true;
 
     if (hasStoredAuthToken()) {
-      const cached = readCache<Binder[]>(cacheKey, []);
+      const cached = readBinderCache(cacheKey);
       if (cached.length) setBinders(cached);
     }
 
