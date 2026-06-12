@@ -152,7 +152,9 @@ export function GoogleAuthButton({
   return (
     <div className="relative w-full">
       <div ref={containerRef} className="flex min-h-11 w-full justify-center" />
-      {(disabled || !isReady) && <div className="absolute inset-0 cursor-not-allowed rounded bg-background/50" />}
+      {(disabled || !isReady) && (
+        <div className="absolute inset-0 cursor-not-allowed rounded bg-background/50" />
+      )}
     </div>
   );
 }

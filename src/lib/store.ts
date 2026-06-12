@@ -122,7 +122,9 @@ function getBinderSortKey(binder: Pick<Partial<Binder>, "updatedAt" | "createdAt
 }
 
 function sortBinders<T extends Pick<Partial<Binder>, "updatedAt" | "createdAt">>(items: T[]) {
-  return [...items].sort((left, right) => getBinderSortKey(right).localeCompare(getBinderSortKey(left)));
+  return [...items].sort((left, right) =>
+    getBinderSortKey(right).localeCompare(getBinderSortKey(left)),
+  );
 }
 
 function sortContacts(items: Contact[]) {

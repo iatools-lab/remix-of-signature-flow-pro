@@ -180,7 +180,9 @@ function BinderDetail() {
       return;
     }
 
-    const activeDocument = (binder.documents ?? []).find((document) => document.id === placementDocId);
+    const activeDocument = (binder.documents ?? []).find(
+      (document) => document.id === placementDocId,
+    );
     if (!activeDocument) {
       return;
     }
@@ -240,11 +242,10 @@ function BinderDetail() {
       return;
     }
 
-    const activeDocument = (binder.documents ?? []).find((document) => document.id === placementDocId);
-    const pageCount = Math.max(
-      1,
-      documentPageCounts[placementDocId] ?? activeDocument?.pages ?? 1,
+    const activeDocument = (binder.documents ?? []).find(
+      (document) => document.id === placementDocId,
     );
+    const pageCount = Math.max(1, documentPageCounts[placementDocId] ?? activeDocument?.pages ?? 1);
 
     if (placementPage > pageCount) {
       setPlacementPage(pageCount);
@@ -573,8 +574,14 @@ function BinderDetail() {
     const rect = event.currentTarget.getBoundingClientRect();
     const width = placementKind === "initial" ? INITIAL_W : ZONE_W;
     const height = placementKind === "initial" ? INITIAL_H : ZONE_H;
-    const x = Math.max(0, Math.min(1 - width, (event.clientX - rect.left) / rect.width - width / 2));
-    const y = Math.max(0, Math.min(1 - height, (event.clientY - rect.top) / rect.height - height / 2));
+    const x = Math.max(
+      0,
+      Math.min(1 - width, (event.clientX - rect.left) / rect.width - width / 2),
+    );
+    const y = Math.max(
+      0,
+      Math.min(1 - height, (event.clientY - rect.top) / rect.height - height / 2),
+    );
 
     setDraftSignatureFields((current) => [
       ...current,

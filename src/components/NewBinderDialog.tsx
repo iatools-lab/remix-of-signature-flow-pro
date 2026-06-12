@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+// Autocomplete implemented inline; no Select component used here
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getApiBaseUrl, getErrorMessage, getStoredAuthToken } from "@/lib/api";
 import { isAllowedSignerEmail } from "@/lib/email";
-import { useBinders } from "@/lib/store";
+import { useBinders, useContacts } from "@/lib/store";
 import { getSession } from "@/lib/auth";
 import {
   type BinderDocument,
@@ -89,6 +90,8 @@ export function NewBinderDialog({
 }) {
   const { t } = useTranslation();
   const { create, update, startBinder } = useBinders();
+  const { contacts, create: createContact } = useContacts();
+  const [focusedSignerId, setFocusedSignerId] = useState<string | null>(null);
   const isEditingDraft = Boolean(draftBinder);
 
   const [step, setStep] = useState<StepKey>("general");
@@ -99,6 +102,9 @@ export function NewBinderDialog({
   const [documents, setDocuments] = useState<LocalBinderDocument[]>([]);
   const [attachments, setAttachments] = useState<BinderAttachment[]>([]);
   const [signers, setSigners] = useState<BinderSigner[]>([]);
+  const [ccRecipients, setCcRecipients] = useState<{ id: string; name: string; email: string }[]>(
+    [],
+  );
   const [fields, setFields] = useState<SignatureField[]>([]);
   const [notif, setNotif] = useState<BinderNotifications>({
     onStart: true,
@@ -136,9 +142,19 @@ export function NewBinderDialog({
       documents.length ||
       attachments.length ||
       signers.some((signer) => signer.name.trim() || signer.email.trim()) ||
+      ccRecipients.some((c) => c.email.trim() || c.name.trim()) ||
       fields.length,
     );
-  }, [name, description, group, documents.length, attachments.length, signers, fields.length]);
+  }, [
+    name,
+    description,
+    group,
+    documents.length,
+    attachments.length,
+    signers,
+    ccRecipients,
+    fields.length,
+  ]);
 
   const reset = () => {
     setStep("general");
@@ -282,10 +298,16 @@ export function NewBinderDialog({
       name: name.trim(),
       description: description.trim() || undefined,
       group,
+      ownerName: getSession()?.name ?? "",
+      ownerEmail: getSession()?.email ?? "",
+      ownerInitials: getSession()?.initials ?? "",
       status: saveAsDraft ? ("draft" as const) : undefined,
       documents: documentPayloads,
       attachments,
       signers: normalizedSigners,
+      ccRecipients: ccRecipients
+        .map((c) => ({ id: c.id, name: c.name?.trim() || undefined, email: c.email.trim() }))
+        .filter((c) => (saveAsDraft ? Boolean(c.email) : true)),
       signatureFields: normalizedFields,
       notifications: notif,
       consolidation,
@@ -382,6 +404,29 @@ export function NewBinderDialog({
         binderId = binder.id;
       }
 
+      // Persist any new signer names into contacts (non-blocking failures)
+      const persistNewContacts = async (toPersist: typeof signers) => {
+        for (const s of toPersist) {
+          const email = s.email?.trim();
+          const name = s.name?.trim();
+          if (!email || !name) continue;
+          const exists = contacts.some((c) => c.email.toLowerCase() === email.toLowerCase());
+          if (exists) continue;
+          const parts = name.split(/\s+/).filter(Boolean);
+          const firstName = parts[0];
+          const lastName = parts.length > 1 ? parts.slice(1).join(" ") : "";
+          try {
+            await createContact({ firstName, lastName, email });
+          } catch (err) {
+            // Ignore contact creation failures
+
+            console.warn("createContact failed", err);
+          }
+        }
+      };
+
+      await persistNewContacts(signers);
+
       await handleClose(false, { saveDraft: false });
       onCreated?.(binderId);
     } catch (error) {
@@ -445,9 +490,19 @@ export function NewBinderDialog({
     });
 
   const removeSigner = (id: string) => {
-    setSigners((p) => p.filter((x) => x.id !== id));
+    setSigners((p) => {
+      const next = p
+        .filter((x) => x.id !== id)
+        .map((x, index) => ({
+          ...x,
+          order: index + 1,
+        }));
+      if (activeSignerId === id) {
+        setActiveSignerId(next[0]?.id ?? null);
+      }
+      return next;
+    });
     setFields((p) => p.filter((f) => f.signerId !== id));
-    if (activeSignerId === id) setActiveSignerId(null);
   };
 
   const activeDoc = documents.find((d) => d.id === activeDocId);
@@ -650,6 +705,7 @@ export function NewBinderDialog({
           {step === "signers" && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">{t("newBinder.signerEmailHelp")}</p>
+              <p className="text-xs text-muted-foreground">{t("newBinder.orderHint")}</p>
               {signers.length === 0 && (
                 <p className="text-center text-sm text-muted-foreground">
                   {t("newBinder.noSigners")}
@@ -657,50 +713,120 @@ export function NewBinderDialog({
               )}
               {signers.map((s, idx) => {
                 const color = s.color ?? SIGNER_COLORS[idx % SIGNER_COLORS.length];
+                const contactMatch = contacts.find(
+                  (contact) =>
+                    `${contact.firstName} ${contact.lastName}`.trim() === s.name &&
+                    contact.email === s.email,
+                );
                 return (
-                  <div
-                    key={s.id}
-                    className="grid grid-cols-[40px_1fr_1fr_36px] items-center gap-2 rounded-md border bg-card p-2"
-                  >
-                    <div
-                      className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white"
-                      style={{ backgroundColor: color }}
-                    >
-                      {idx + 1}
+                  <div key={s.id} className="space-y-2 rounded-md border bg-card p-3">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white"
+                        style={{ backgroundColor: color }}
+                      >
+                        {idx + 1}
+                      </div>
+                      <div className="text-sm font-medium text-foreground">
+                        {t("newBinder.signerLabel", { order: idx + 1 })}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeSigner(s.id)}
+                        className="ml-auto rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        aria-label="Remove"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
-                    <Input
-                      placeholder={t("newBinder.signerName")}
-                      value={s.name}
-                      onChange={(e) =>
-                        setSigners((prev) =>
-                          prev.map((x) => (x.id === s.id ? { ...x, name: e.target.value } : x)),
-                        )
-                      }
-                    />
-                    <div className="space-y-1">
-                      <Input
-                        type="email"
-                        placeholder={t("newBinder.signerEmail")}
-                        value={s.email}
-                        onChange={(e) =>
-                          setSigners((prev) =>
-                            prev.map((x) => (x.id === s.id ? { ...x, email: e.target.value } : x)),
-                          )
-                        }
-                      />
-                      {s.email.trim() && invalidSignerIds.has(s.id) ? (
-                        <p className="text-xs text-destructive">
-                          {t("newBinder.signerEmailDomainError")}
-                        </p>
-                      ) : null}
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          {t("newBinder.signerName")}
+                        </label>
+                        <div className="relative">
+                          <Input
+                            placeholder={t("newBinder.signerContactPlaceholder")}
+                            value={s.name}
+                            onFocus={() => setFocusedSignerId(s.id)}
+                            onBlur={() =>
+                              setTimeout(
+                                () => setFocusedSignerId((cur) => (cur === s.id ? null : cur)),
+                                150,
+                              )
+                            }
+                            onChange={(e) =>
+                              setSigners((prev) =>
+                                prev.map((x) =>
+                                  x.id === s.id ? { ...x, name: e.target.value } : x,
+                                ),
+                              )
+                            }
+                          />
+                          {focusedSignerId === s.id &&
+                            s.name.trim() &&
+                            (() => {
+                              const q = s.name.trim().toLowerCase();
+                              const matches = contacts
+                                .filter((c) =>
+                                  `${c.firstName} ${c.lastName}`.toLowerCase().includes(q),
+                                )
+                                .slice(0, 8);
+                              if (matches.length === 0) return null;
+                              return (
+                                <ul className="absolute z-20 mt-1 max-h-44 w-full overflow-auto rounded border bg-card p-1 shadow">
+                                  {matches.map((contact) => (
+                                    <li key={contact.id} className="">
+                                      <button
+                                        type="button"
+                                        onMouseDown={(ev) => ev.preventDefault()}
+                                        onClick={() =>
+                                          setSigners((prev) =>
+                                            prev.map((x) =>
+                                              x.id === s.id
+                                                ? {
+                                                    ...x,
+                                                    name: `${contact.firstName} ${contact.lastName}`,
+                                                    email: contact.email,
+                                                  }
+                                                : x,
+                                            ),
+                                          )
+                                        }
+                                        className="w-full rounded px-2 py-1 text-left text-sm hover:bg-accent"
+                                      >
+                                        {contact.firstName} {contact.lastName} · {contact.email}
+                                      </button>
+                                    </li>
+                                  ))}
+                                </ul>
+                              );
+                            })()}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          {t("newBinder.signerEmail")}
+                        </label>
+                        <Input
+                          type="email"
+                          placeholder={t("newBinder.signerEmail")}
+                          value={s.email}
+                          onChange={(e) =>
+                            setSigners((prev) =>
+                              prev.map((x) =>
+                                x.id === s.id ? { ...x, email: e.target.value } : x,
+                              ),
+                            )
+                          }
+                        />
+                        {s.email.trim() && invalidSignerIds.has(s.id) ? (
+                          <p className="text-xs text-destructive">
+                            {t("newBinder.signerEmailDomainError")}
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
-                    <button
-                      onClick={() => removeSigner(s.id)}
-                      className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      aria-label="Remove"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
                   </div>
                 );
               })}
@@ -710,6 +836,52 @@ export function NewBinderDialog({
               >
                 <Plus className="h-4 w-4" /> {t("newBinder.addSigner")}
               </button>
+            </div>
+          )}
+
+          {step === "notifications" && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">{t("newBinder.ccHelp")}</p>
+              <div className="space-y-2">
+                {ccRecipients.map((c) => (
+                  <div key={c.id} className="flex items-center gap-2">
+                    <Input
+                      placeholder={t("newBinder.ccName")}
+                      value={c.name}
+                      onChange={(e) =>
+                        setCcRecipients((prev) =>
+                          prev.map((x) => (x.id === c.id ? { ...x, name: e.target.value } : x)),
+                        )
+                      }
+                    />
+                    <Input
+                      placeholder={t("newBinder.ccEmail")}
+                      value={c.email}
+                      onChange={(e) =>
+                        setCcRecipients((prev) =>
+                          prev.map((x) => (x.id === c.id ? { ...x, email: e.target.value } : x)),
+                        )
+                      }
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setCcRecipients((p) => p.filter((x) => x.id !== c.id))}
+                      className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCcRecipients((p) => [...p, { id: `cc_${Date.now()}`, name: "", email: "" }])
+                  }
+                  className="flex items-center gap-2 text-sm text-action"
+                >
+                  <Plus className="h-4 w-4" /> {t("newBinder.addCc")}
+                </button>
+              </div>
             </div>
           )}
 

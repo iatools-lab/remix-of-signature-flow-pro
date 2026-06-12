@@ -109,7 +109,11 @@ export function DocumentPagePreview({
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.setTransform(outputScale, 0, 0, outputScale, 0, 0);
 
-        await pdfPage.render({ canvasContext: context, viewport }).promise;
+        // Provide both canvas and canvasContext to satisfy different pdfjs typings
+        // and ensure the prepared context/transform is used for rendering.
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore - pdfjs render param typing may vary between versions
+        await pdfPage.render({ canvas, canvasContext: context, viewport }).promise;
         await pdf.destroy();
 
         if (!isCancelled) {
